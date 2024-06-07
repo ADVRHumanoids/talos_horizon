@@ -133,58 +133,58 @@ cfg.set_bool_parameter('is_model_floating_base', True)
 
 base_pose = None
 base_twist = None
-try:
-    robot = xbot.RobotInterface(cfg)
-    # rospy.Subscriber('/cogimon_base_estimation/base_link/pose', PoseStamped, gt_pose_callback)
-    # rospy.Subscriber('/cogimon_base_estimation/base_link/twist', TwistStamped, gt_twist_callback)
-    rospy.Subscriber('/xbotcore/link_state/base_link/pose', PoseStamped, gt_pose_callback)
-    rospy.Subscriber('/xbotcore/link_state/base_link/twist', TwistStamped, gt_twist_callback)
+# try:
+#     robot = xbot.RobotInterface(cfg)
+#     # rospy.Subscriber('/cogimon_base_estimation/base_link/pose', PoseStamped, gt_pose_callback)
+#     # rospy.Subscriber('/cogimon_base_estimation/base_link/twist', TwistStamped, gt_twist_callback)
+#     rospy.Subscriber('/xbotcore/link_state/base_link/pose', PoseStamped, gt_pose_callback)
+#     rospy.Subscriber('/xbotcore/link_state/base_link/twist', TwistStamped, gt_twist_callback)
+#
+#     while base_pose is None or base_twist is None:
+#         print('trying')
+#         rospy.sleep(0.01)
+#
+#     base_pose = np.array([0.03, 0., 0.962, 0., -0.029995, 0.0, 0.99955])
+#     base_twist = np.zeros(6)
+#
+#     robot.sense()
+#     q_init = robot.getPositionReference()
+#     q_init = robot.eigenToMap(q_init)
+#     print(colorama.Fore.CYAN + 'RobotInterface created!' + colorama.Fore.RESET)
+#
+# except:
+print(colorama.Fore.CYAN + 'RobotInterface not created' + colorama.Fore.RESET)
+base_pose = np.array([0.03, 0., 0.962, 0., -0.029995, 0.0, 0.99955])
 
-    while base_pose is None or base_twist is None:
-        print('trying')
-        rospy.sleep(0.01)
+q_init = {"WaistLat": 0.0,
+          # "WaistYaw": 0.0,
+          "RShSag": 0.959931,
+          "RShLat": -0.007266,
+          "RShYaw": -0.0,
+          "RElbj": -1.919862,
+          "RForearmPlate": 0.0,
+          "RWrj1": -0.523599,
+          "LShSag": 0.959931,
+          "LShLat": 0.007266,
+          "LShYaw": -0.0,
+          "LElbj": -1.919862,
+          "LForearmPlate": 0.0,
+          "LWrj1": -0.523599,
+          "RHipLat": 0.0,
+          "RHipSag": -0.363826,
+          "RHipYaw": 0.0,
+          "RKneePitch": 0.731245,
+          "RAnklePitch": -0.307420,
+          "RAnkleRoll": -0.0,
+          "LHipLat": -0.0,
+          "LHipSag": -0.363826,
+          "LHipYaw": 0.0,
+          "LKneePitch": 0.731245,
+          "LAnklePitch": -0.307420,
+          "LAnkleRoll": 0.0}
 
-    base_pose = np.array([0.03, 0., 0.962, 0., -0.029995, 0.0, 0.99955])
-    base_twist = np.zeros(6)
-
-    robot.sense()
-    q_init = robot.getPositionReference()
-    q_init = robot.eigenToMap(q_init)
-    print(colorama.Fore.CYAN + 'RobotInterface created!' + colorama.Fore.RESET)
-
-except:
-    print(colorama.Fore.CYAN + 'RobotInterface not created' + colorama.Fore.RESET)
-    base_pose = np.array([0.03, 0., 0.962, 0., -0.029995, 0.0, 0.99955])
-
-    q_init = {"WaistLat": 0.0,
-              # "WaistYaw": 0.0,
-              "RShSag": 0.959931,
-              "RShLat": -0.007266,
-              "RShYaw": -0.0,
-              "RElbj": -1.919862,
-              "RForearmPlate": 0.0,
-              "RWrj1": -0.523599,
-              "LShSag": 0.959931,
-              "LShLat": 0.007266,
-              "LShYaw": -0.0,
-              "LElbj": -1.919862,
-              "LForearmPlate": 0.0,
-              "LWrj1": -0.523599,
-              "RHipLat": 0.0,
-              "RHipSag": -0.363826,
-              "RHipYaw": 0.0,
-              "RKneePitch": 0.731245,
-              "RAnklePitch": -0.307420,
-              "RAnkleRoll": -0.0,
-              "LHipLat": -0.0,
-              "LHipSag": -0.363826,
-              "LHipYaw": 0.0,
-              "LKneePitch": 0.731245,
-              "LAnklePitch": -0.307420,
-              "LAnkleRoll": 0.0}
-
-    base_twist = np.zeros(6)
-    robot = None
+base_twist = np.zeros(6)
+robot = None
 
 '''
 Initialize Horizon problem
@@ -336,7 +336,7 @@ while not rospy.is_shutdown():
     prb.getState().setInitialGuess(xig)
     prb.setInitialState(x0=xig[:, 0])
 
-    if robot is not None:
+    if False: #robot is not None:
         robot.sense()
         q = robot.getJointPositionMap()
         for fixed_joint in fixed_joint_map.keys():

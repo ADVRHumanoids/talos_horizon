@@ -34,12 +34,12 @@ costs:
   - joint_regularization #, foot_z_l_sole, foot_z_r_sole] # com_height
 
 .define:
-    - &w_com 10.
-    - &w_base_ori 10.
+    - &w_com 20.
+    - &w_base_ori 50.
     - &w_base_xy 10.
     - &w_contact_z 1000.
     - &w_postural 1.
-    - &w_postural_ub 0.5
+    - &w_postural_ub 1.
     - &w_v 1
     - &w_a 1e-2
     - &w_f 0.006 #1e-3
