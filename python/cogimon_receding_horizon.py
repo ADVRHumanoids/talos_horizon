@@ -200,8 +200,8 @@ Initialize Horizon problem
 '''
 # ns = 30
 # T = 1.5
-ns = 50
-T = 2.5
+ns = 30
+T = 1.5
 dt = T / ns
 
 # logger = matlogger.MatLogger2('/tmp/mpc_logger')
@@ -219,10 +219,6 @@ model = FullModelInverseDynamics(problem=prb,
                                  q_init=q_init,
                                  base_init=base_pose,
                                  fixed_joint_map=fixed_joint_map)
-
-
-# print(model.kd.mass())
-# exit()
 
 qmin = np.array(model.kd.q_min())
 qmax = np.array(model.kd.q_max())
