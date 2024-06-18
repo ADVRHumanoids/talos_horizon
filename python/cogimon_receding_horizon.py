@@ -17,7 +17,7 @@ import phase_manager.pyphase as pyphase
 import phase_manager.pytimeline as pytimeline
 
 from sensor_msgs.msg import Joy
-from kyon_controller.msg import WBTrajectory
+from cogimon_controller.msg import WBTrajectory
 from geometry_msgs.msg import PoseStamped, TwistStamped, Vector3, PointStamped
 
 from matplotlib import pyplot as hplt
@@ -231,7 +231,7 @@ process = subprocess.Popen(bashCommand.split(), start_new_session=True)
 
 
 ti = TaskInterface(prb=prb, model=model)
-ti.setTaskFromYaml(rospkg.RosPack().get_path('kyon_controller') + '/config/cogimon_config.yaml')
+ti.setTaskFromYaml(rospkg.RosPack().get_path('cogimon_controller') + '/config/cogimon_config.yaml')
 
 cd_fun = ti.model.kd.computeCentroidalDynamics()
 
@@ -272,22 +272,22 @@ for c in model.cmap:
     # stance phase
     time_flight = step_time
     stance_duration = int(time_flight / dt)
-    # stance_duration = 15
-    stance_duration = 60
+    stance_duration = 15
+    # stance_duration = 60
     stance_phase = c_timelines[c].createPhase(stance_duration, f'stance_{c}')
     stance_phase.addItem(ti.getTask(f'foot_contact_{c}'))
 
     time_double_stance = 0.4
     short_stance_duration = int(time_double_stance / dt)
-    # short_stance_duration = 7
-    short_stance_duration = 60
+    short_stance_duration = 7
+    # short_stance_duration = 60
     short_stance_phase = c_timelines[c].createPhase(short_stance_duration, f'short_stance_{c}')
     short_stance_phase.addItem(ti.getTask(f'foot_contact_{c}'))
 
     time_flight = step_time
     flight_duration = int(time_flight / dt)
-    # flight_duration = 15
-    flight_duration = 60
+    flight_duration = 15
+    # flight_duration = 60
     flight_phase = c_timelines[c].createPhase(flight_duration, f'flight_{c}')
     init_z_foot = model.kd.fk(c)(q=model.q0)['ee_pos'].elements()[2]
     ref_trj = np.zeros(shape=[7, flight_duration])

@@ -7,7 +7,7 @@
 <!--     <remap if="$(arg xbot)" from="/xbotcore/robot_description_semantic" to="/robot_description_semantic"/> -->
 
     <node pkg="kyon_controller" type="controller" name="centauro_controller_node" output="screen">
-        <param name="config" textfile="$(find kyon_controller)/config/cogimon_controller_config.yaml"/>
+        <param name="config" textfile="$(find cogimon_controller)/config/cogimon_controller_config.yaml"/>
         <param name="rate" value="1000"/>
     </node>
 
@@ -15,5 +15,5 @@
         <param name="autorepeat_rate" value="20"/>
     </node>
 
-    <node pkg="kyon_controller" type="cogimon_receding_horizon.py" name="mpc_node" output="screen"/>
+    <node pkg="cogimon_controller" type="cogimon_receding_horizon.py" name="mpc_node" output="screen"/>
 </launch>

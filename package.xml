@@ -1,8 +1,8 @@
 <package format="2">
-  <name>kyon_controller</name>
+  <name>cogimon_controller</name>
   <version>1.2.4</version>
   <description>
-  repository for controlling the quadruped kyon
+  repository for controlling the humanoids cogimon
   </description>
   <maintainer email="luca.rossini@iit.it">luca</maintainer>
   <license>BSD</license>
