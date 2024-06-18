@@ -115,8 +115,15 @@ Load urdf and srdf
 cogimon_urdf_folder = rospkg.RosPack().get_path('cogimon_urdf')
 cogimon_srdf_folder = rospkg.RosPack().get_path('cogimon_srdf')
 
-urdf = open(cogimon_urdf_folder + '/urdf/cogimon.urdf', 'r').read()
-srdf = open(cogimon_srdf_folder + '/srdf/cogimon.srdf', 'r').read()
+# urdf = open(cogimon_urdf_folder + '/urdf/cogimon.urdf', 'r').read()
+# srdf = open(cogimon_srdf_folder + '/srdf/cogimon.srdf', 'r').read()
+
+urdf = rospy.get_param('/robot_description', "")
+if urdf == "":
+    raise print("missing mandatory parameter 'urdf'")
+srdf = rospy.get_param('/robot_description_semantic', "")
+if srdf == "":
+    raise print("missing mandatory parameter 'srdf'")
 
 file_dir = os.getcwd()
 
@@ -174,13 +181,15 @@ q_init = {"WaistLat": 0.0,
           "RHipSag": -0.363826,
           "RHipYaw": 0.0,
           "RKneePitch": 0.731245,
-          "RAnklePitch": -0.307420,
+          "RAnklePitch": -0.29,
+          # "RAnklePitch": -0.307420,
           "RAnkleRoll": -0.0,
           "LHipLat": -0.0,
           "LHipSag": -0.363826,
           "LHipYaw": 0.0,
           "LKneePitch": 0.731245,
-          "LAnklePitch": -0.307420,
+          "LAnklePitch": -0.29,
+          # "LAnklePitch": -0.307420,
           "LAnkleRoll": 0.0}
 
 base_twist = np.zeros(6)
@@ -189,11 +198,13 @@ robot = None
 '''
 Initialize Horizon problem
 '''
-ns = 30
-T = 1.5
+# ns = 30
+# T = 1.5
+ns = 50
+T = 2.5
 dt = T / ns
 
-logger = matlogger.MatLogger2('/tmp/mpc_logger')
+# logger = matlogger.MatLogger2('/tmp/mpc_logger')
 
 prb = Problem(ns, receding=True, casadi_type=cs.SX)
 dt_param = prb.createParameter('dt', 1)
@@ -209,9 +220,19 @@ model = FullModelInverseDynamics(problem=prb,
                                  base_init=base_pose,
                                  fixed_joint_map=fixed_joint_map)
 
-rospy.set_param('/robot_description', urdf)
-bashCommand = 'rosrun robot_state_publisher robot_state_publisher'
+
+# print(model.kd.mass())
+# exit()
+
+qmin = np.array(model.kd.q_min())
+qmax = np.array(model.kd.q_max())
+prb.createResidual("q_limit_lower", 100 * utils.barrier(model.q - qmin))
+prb.createResidual("q_limit_upper", 100 * utils.barrier1(model.q - qmax))
+
+# rospy.set_param('/robot_description', urdf)
+bashCommand = 'rosrun robot_state_publisher robot_state_publisher robot_description:=xbotcore/robot_description'
 process = subprocess.Popen(bashCommand.split(), start_new_session=True)
+
 
 ti = TaskInterface(prb=prb, model=model)
 ti.setTaskFromYaml(rospkg.RosPack().get_path('kyon_controller') + '/config/cogimon_config.yaml')
@@ -255,19 +276,22 @@ for c in model.cmap:
     # stance phase
     time_flight = step_time
     stance_duration = int(time_flight / dt)
-    stance_duration = 15
+    # stance_duration = 15
+    stance_duration = 60
     stance_phase = c_timelines[c].createPhase(stance_duration, f'stance_{c}')
     stance_phase.addItem(ti.getTask(f'foot_contact_{c}'))
 
     time_double_stance = 0.4
     short_stance_duration = int(time_double_stance / dt)
-    short_stance_duration = 7
+    # short_stance_duration = 7
+    short_stance_duration = 60
     short_stance_phase = c_timelines[c].createPhase(short_stance_duration, f'short_stance_{c}')
     short_stance_phase.addItem(ti.getTask(f'foot_contact_{c}'))
 
     time_flight = step_time
     flight_duration = int(time_flight / dt)
-    flight_duration = 15
+    # flight_duration = 15
+    flight_duration = 60
     flight_phase = c_timelines[c].createPhase(flight_duration, f'flight_{c}')
     init_z_foot = model.kd.fk(c)(q=model.q0)['ee_pos'].elements()[2]
     ref_trj = np.zeros(shape=[7, flight_duration])
@@ -393,7 +417,7 @@ while not rospy.is_shutdown():
 
     if joy_msg.buttons[3] == 1:
         com_height = ti.getTask('com_height')
-        reference = np.atleast_2d(np.array([0., 0., solution['q'][2, 0] + 0.05, 0., 0., 0., 0.]))
+        reference = np.atleast_2d(np.array([0., 0., solution['q'][2, 0] + 0.025, 0., 0., 0., 0.]))
         com_height.setRef(reference.T)
     elif joy_msg.buttons[2] == 1:
         com_height = ti.getTask('com_height')
@@ -409,8 +433,8 @@ while not rospy.is_shutdown():
     # get new solution and overwrite old one
     solution = ti.solution
 
-    for force_name in model.getForceMap():
-        logger.add(force_name, solution[f'f_{force_name}'][:, 0])
+    # for force_name in model.getForceMap():
+    #     logger.add(force_name, solution[f'f_{force_name}'][:, 0])
 
     sol_msg = WBTrajectory()
     sol_msg.header.frame_id = 'world'
@@ -418,9 +442,15 @@ while not rospy.is_shutdown():
 
     sol_msg.joint_names = [elem for elem in kin_dyn.joint_names() if elem not in ['universe', 'reference']]
 
+    solution['q'][12, 0] *= -1
+    solution['q'][18, 0] *= -1
+
     sol_msg.q = solution['q'][:, 0].tolist()
     sol_msg.v = solution['v'][:, 0].tolist()
     sol_msg.a = solution['a'][:, 0].tolist()
+
+    solution['q'][12, 0] *= -1
+    solution['q'][18, 0] *= -1
 
     for frame in model.getForceMap():
         sol_msg.force_names.append(frame)
