@@ -343,7 +343,6 @@ global joy_msg
 import time
 
 while not rospy.is_shutdown():
-
     tic = time.time()
     # set initial state and initial guess
     shift_num = -1
@@ -438,15 +437,15 @@ while not rospy.is_shutdown():
 
     sol_msg.joint_names = [elem for elem in kin_dyn.joint_names() if elem not in ['universe', 'reference']]
 
-    solution['q'][12, 0] *= -1
-    solution['q'][18, 0] *= -1
+    # solution['q'][12, 0] *= -1
+    # solution['q'][18, 0] *= -1
 
     sol_msg.q = solution['q'][:, 0].tolist()
     sol_msg.v = solution['v'][:, 0].tolist()
     sol_msg.a = solution['a'][:, 0].tolist()
 
-    solution['q'][12, 0] *= -1
-    solution['q'][18, 0] *= -1
+    # solution['q'][12, 0] *= -1
+    # solution['q'][18, 0] *= -1
 
     for frame in model.getForceMap():
         sol_msg.force_names.append(frame)
