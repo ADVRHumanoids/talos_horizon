@@ -229,7 +229,6 @@ prb.createResidual("q_limit_upper", 100 * utils.barrier1(model.q - qmax))
 bashCommand = 'rosrun robot_state_publisher robot_state_publisher robot_description:=xbotcore/robot_description'
 process = subprocess.Popen(bashCommand.split(), start_new_session=True)
 
-
 ti = TaskInterface(prb=prb, model=model)
 ti.setTaskFromYaml(rospkg.RosPack().get_path('cogimon_controller') + '/config/cogimon_config.yaml')
 

@@ -1,0 +1,201 @@
+#!/usr/bin/python3
+
+from cartesian_interface.pyci_all import *
+from xbot_interface import config_options as co
+from xbot_interface import xbot_interface as xbot
+from horizon.problem import Problem
+from horizon.rhc.model_description import FullModelInverseDynamics
+from horizon.rhc.taskInterface import TaskInterface
+from horizon.utils import trajectoryGenerator, analyzer, utils
+from horizon.transcriptions import integrators
+from horizon.ros import replay_trajectory
+from horizon.utils import plotter
+import matplotlib.pyplot as plt
+import casadi_kin_dyn.py3casadi_kin_dyn as casadi_kin_dyn
+import phase_manager.pymanager as pymanager
+import phase_manager.pyphase as pyphase
+import phase_manager.pytimeline as pytimeline
+
+from sensor_msgs.msg import Joy
+from cogimon_controller.msg import WBTrajectory
+from geometry_msgs.msg import PoseStamped, TwistStamped, Vector3, PointStamped
+
+from matplotlib import pyplot as hplt
+
+from matlogger2 import matlogger
+
+import casadi as cs
+import rospy
+import rospkg
+import numpy as np
+import subprocess
+import os
+
+rospy.init_node('cogimon_straight_node')
+
+'''
+Load urdf and srdf
+'''
+cogimon_urdf_folder = rospkg.RosPack().get_path('cogimon_urdf')
+cogimon_srdf_folder = rospkg.RosPack().get_path('cogimon_srdf')
+
+urdf = open(cogimon_urdf_folder + '/urdf/cogimon.urdf', 'r').read()
+srdf = open(cogimon_srdf_folder + '/srdf/cogimon.srdf', 'r').read()
+
+tmp = srdf.split('<disable_collisions')
+srdf = tmp[0] + '</robot>'
+
+'''
+Build ModelInterface
+'''
+cfg = co.ConfigOptions()
+cfg.set_urdf(urdf)
+cfg.set_srdf(srdf)
+cfg.generate_jidmap()
+cfg.set_string_parameter('model_type', 'RBDL')
+cfg.set_string_parameter('framework', 'ROS')
+cfg.set_bool_parameter('is_model_floating_base', True)
+
+model_xbot = xbot.ModelInterface(cfg)
+qhome = model_xbot.getRobotState("home")
+model_xbot.setJointPosition(qhome)
+model_xbot.update()
+
+q_init = model_xbot.getJointPositionMap()
+base_pose = np.array([0.03, 0., 0.962, 0., -0.029995, 0.0, 0.99955])
+base_twist = np.zeros(6)
+
+'''
+Initialize Horizon problem
+'''
+ns = 210
+T = 10
+dt = T / ns
+
+prb = Problem(ns, receding=True, casadi_type=cs.SX)
+prb.setDt(dt)
+
+kin_dyn = casadi_kin_dyn.CasadiKinDyn(urdf)
+
+model = FullModelInverseDynamics(problem=prb,
+                                 kd=kin_dyn,
+                                 q_init=q_init,
+                                 base_init=base_pose)
+
+qmin = np.array(model.kd.q_min())
+qmax = np.array(model.kd.q_max())
+prb.createResidual("q_limit_lower", 100 * utils.barrier(model.q - qmin))
+prb.createResidual("q_limit_upper", 100 * utils.barrier1(model.q - qmax))
+
+rospy.set_param('/robot_description', urdf)
+bashCommand = 'rosrun robot_state_publisher robot_state_publisher robot_description:=robot_description'
+process = subprocess.Popen(bashCommand.split(), start_new_session=True)
+
+ti = TaskInterface(prb=prb, model=model)
+ti.setTaskFromYaml(rospkg.RosPack().get_path('cogimon_controller') + '/config/cogimon_straight_config.yaml')
+
+'''
+Foot vertices relative distance constraint
+'''
+pos_lf = model.kd.fk('l_sole')(q=model.q)['ee_pos']
+pos_rf = model.kd.fk('r_sole')(q=model.q)['ee_pos']
+base_ori = model.kd.fk('base_link')(q=model.q)['ee_rot']
+rel_dist = base_ori.T @ (pos_lf - pos_rf)
+
+# prb.createResidual('relative_distance_lower_x', utils.barrier(rel_dist[0] + 0.3))
+# prb.createResidual('relative_distance_upper_x', utils.barrier1(rel_dist[0] - 0.4))
+prb.createResidual('relative_distance_lower_y', 10. * utils.barrier(rel_dist[1] - 0.21))
+# prb.createResidual('relative_distance_upper_y', 10. * utils.barrier1(rel_dist[1] - 0.35))
+
+# force_z_ref = dict()
+# for contact, force in model.getForceMap().items():
+#     print(f'{contact}: {force}')
+#     force_z_ref[contact] = prb.createParameter(f'{contact}_force_z_ref', 1)
+#     prb.createIntermediateResidual(f'{contact}_force_z_reg', 0.001 * (force[2] - force_z_ref[contact]))
+
+tg = trajectoryGenerator.TrajectoryGenerator()
+
+pm = pymanager.PhaseManager(ns + 1)
+# phase manager handling
+c_timelines = dict()
+for c in model.cmap:
+    c_timelines[c] = pm.createTimeline(f'{c}_timeline')
+
+for c in model.cmap:
+    # stance phase
+    stance_duration = 15
+    stance_phase = c_timelines[c].createPhase(stance_duration, f'stance_{c}')
+    stance_phase.addItem(ti.getTask(f'foot_contact_{c}'))
+
+    short_stance_duration = 7
+    short_stance_phase = c_timelines[c].createPhase(short_stance_duration, f'short_stance_{c}')
+    short_stance_phase.addItem(ti.getTask(f'foot_contact_{c}'))
+
+    flight_duration = 15
+    flight_phase = c_timelines[c].createPhase(flight_duration, f'flight_{c}')
+    init_z_foot = model.kd.fk(c)(q=model.q0)['ee_pos'].elements()[2]
+    ref_trj = np.zeros(shape=[7, flight_duration])
+    ref_trj[2, :] = np.atleast_2d(tg.from_derivatives(flight_duration, init_z_foot, init_z_foot, 0.05, [None, 0, None]))
+    flight_phase.addItemReference(ti.getTask(f'foot_z_{c}'), ref_trj)
+
+# for c in model.cmap:
+#     stance = c_timelines[c].getRegisteredPhase(f'stance_{c}')
+#     flight = c_timelines[c].getRegisteredPhase(f'flight_{c}')
+#     short_stance = c_timelines[c].getRegisteredPhase(f'short_stance_{c}')
+#     while c_timelines[c].getEmptyNodes() > 0:
+#         c_timelines[c].addPhase(stance)
+
+def step(swing, stance):
+    c_timelines[swing].addPhase(c_timelines[swing].getRegisteredPhase(f'flight_{swing}'))
+    c_timelines[stance].addPhase(c_timelines[stance].getRegisteredPhase(f'stance_{stance}'))
+    c_timelines[stance].addPhase(c_timelines[stance].getRegisteredPhase(f'short_stance_{stance}'))
+    c_timelines[swing].addPhase(c_timelines[swing].getRegisteredPhase(f'short_stance_{swing}'))
+
+def stand():
+    for c in model.cmap:
+        stance = c_timelines[c].getRegisteredPhase(f'stance_{c}')
+        c_timelines[c].addPhase(stance)
+
+
+for c in model.cmap:
+    while c_timelines[c].getEmptyNodes() > 0:
+        # step('l_sole', 'r_sole')
+        # step('r_sole', 'l_sole')
+        stand()
+
+ti.getTask('final_base_xy').setRef(np.atleast_2d([2, 0, 0, 0, 0, 0, 0]).T)
+
+J_l = model.kd.jacobian('l_sole', model.kd_frame)(q=model.q)['J']
+J_r = model.kd.jacobian('r_sole', model.kd_frame)(q=model.q)['J']
+
+# prb.createResidual('singularity_left', 10 * utils.barrier(cs.det(J_l @ J_l.T) - 50))
+# prb.createResidual('singularity_right', 10 * utils.barrier(cs.det(J_r @ J_r.T) - 50))
+
+model.q.setBounds(model.q0, model.q0, nodes=0)
+model.v.setBounds(model.v0, model.v0, nodes=0)
+model.v.setBounds(model.v0, model.v0, nodes=ns)
+model.q.setInitialGuess(ti.model.q0)
+
+# prb.createFinalConstraint('cazzi', model.v)
+f0 = [0, 0, kin_dyn.mass() / 8 * 9.8]
+for cname, cforces in ti.model.cmap.items():
+    for c in cforces:
+        c.setInitialGuess(f0)
+
+# for contact, force in model.getForceMap().items():
+#     force_z_ref[contact].assign(f0[2])
+
+# finalize taskInterface and solve bootstrap problem
+
+ti.finalize()
+ti.bootstrap()
+
+solution = ti.solution
+
+contact_list_repl = list(model.cmap.keys())
+repl = replay_trajectory.replay_trajectory(prb.getDt(), kin_dyn.joint_names(), solution['q'], kindyn=kin_dyn, trajectory_markers=contact_list_repl)
+
+repl.replay()
+
+
+
