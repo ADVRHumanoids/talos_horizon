@@ -163,20 +163,20 @@ base_twist = None
 print(colorama.Fore.CYAN + 'RobotInterface not created' + colorama.Fore.RESET)
 base_pose = np.array([0.03, 0., 0.962, 0., -0.029995, 0.0, 0.99955])
 
-q_init = {"WaistLat": 0.0,
+q_init = {#"WaistLat": 0.0,
           # "WaistYaw": 0.0,
-          "RShSag": 0.959931,
-          "RShLat": -0.007266,
-          "RShYaw": -0.0,
-          "RElbj": -1.919862,
-          "RForearmPlate": 0.0,
-          "RWrj1": -0.523599,
-          "LShSag": 0.959931,
-          "LShLat": 0.007266,
-          "LShYaw": -0.0,
-          "LElbj": -1.919862,
-          "LForearmPlate": 0.0,
-          "LWrj1": -0.523599,
+          # "RShSag": 0.959931,
+          # "RShLat": -0.007266,
+          # "RShYaw": -0.0,
+          # "RElbj": -1.919862,
+          # "RForearmPlate": 0.0,
+          # "RWrj1": -0.523599,
+          # "LShSag": 0.959931,
+          # "LShLat": 0.007266,
+          # "LShYaw": -0.0,
+          # "LElbj": -1.919862,
+          # "LForearmPlate": 0.0,
+          # "LWrj1": -0.523599,
           "RHipLat": 0.0,
           "RHipSag": -0.363826,
           "RHipYaw": 0.0,
@@ -211,14 +211,14 @@ dt_param = prb.createParameter('dt', 1)
 dt_param.assign(dt)
 prb.setDt(dt_param)
 
-fixed_joint_map = {'WaistYaw': 0.0}
-kin_dyn = casadi_kin_dyn.CasadiKinDyn(urdf, fixed_joints=fixed_joint_map)
+# fixed_joint_map = {'WaistYaw': 0.0}
+kin_dyn = casadi_kin_dyn.CasadiKinDyn(urdf) #, fixed_joints=fixed_joint_map)
 
 model = FullModelInverseDynamics(problem=prb,
                                  kd=kin_dyn,
                                  q_init=q_init,
-                                 base_init=base_pose,
-                                 fixed_joint_map=fixed_joint_map)
+                                 base_init=base_pose)
+                                 # fixed_joint_map=fixed_joint_map)
 
 qmin = np.array(model.kd.q_min())
 qmax = np.array(model.kd.q_max())
@@ -226,7 +226,7 @@ prb.createResidual("q_limit_lower", 100 * utils.barrier(model.q - qmin))
 prb.createResidual("q_limit_upper", 100 * utils.barrier1(model.q - qmax))
 
 # rospy.set_param('/robot_description', urdf)
-bashCommand = 'rosrun robot_state_publisher robot_state_publisher robot_description:=xbotcore/robot_description'
+bashCommand = 'rosrun robot_state_publisher robot_state_publisher'
 process = subprocess.Popen(bashCommand.split(), start_new_session=True)
 
 ti = TaskInterface(prb=prb, model=model)
@@ -236,7 +236,7 @@ cd_fun = ti.model.kd.computeCentroidalDynamics()
 
 # adding minimization of angular momentum
 h_lin, h_ang, dh_lin, dh_ang = cd_fun(model.q, model.v, model.a)
-prb.createIntermediateResidual('min_angular_mom', 1e-1 * dh_ang)
+# prb.createIntermediateResidual('min_angular_mom', 1e-1 * dh_ang)
 
 
 '''
@@ -249,14 +249,14 @@ rel_dist = base_ori.T @ (pos_lf - pos_rf)
 
 # prb.createResidual('relative_distance_lower_x', utils.barrier(rel_dist[0] + 0.3))
 # prb.createResidual('relative_distance_upper_x', utils.barrier1(rel_dist[0] - 0.4))
-prb.createResidual('relative_distance_lower_y', 10. * utils.barrier(rel_dist[1] - 0.21))
+prb.createResidual('relative_distance_lower_y', 100. * utils.barrier(rel_dist[1] - 0.15))
 # prb.createResidual('relative_distance_upper_y', 10. * utils.barrier1(rel_dist[1] - 0.35))
 
-force_z_ref = dict()
-for contact, force in model.getForceMap().items():
-    print(f'{contact}: {force}')
-    force_z_ref[contact] = prb.createParameter(f'{contact}_force_z_ref', 1)
-    prb.createIntermediateResidual(f'{contact}_force_z_reg', 0.001 * (force[2] - force_z_ref[contact]))
+# force_z_ref = dict()
+# for contact, force in model.getForceMap().items():
+#     print(f'{contact}: {force}')
+#     force_z_ref[contact] = prb.createParameter(f'{contact}_force_z_ref', 1)
+#     prb.createIntermediateResidual(f'{contact}_force_z_reg', 0.001 * (force[2] - force_z_ref[contact]))
 
 tg = trajectoryGenerator.TrajectoryGenerator()
 
@@ -266,27 +266,21 @@ c_timelines = dict()
 for c in model.cmap:
     c_timelines[c] = pm.createTimeline(f'{c}_timeline')
 
-step_time = 0.7
 for c in model.cmap:
     # stance phase
-    time_flight = step_time
-    stance_duration = int(time_flight / dt)
-    stance_duration = 15
-    # stance_duration = 60
+    # stance_duration = 15
+    stance_duration = 10
     stance_phase = c_timelines[c].createPhase(stance_duration, f'stance_{c}')
     stance_phase.addItem(ti.getTask(f'foot_contact_{c}'))
 
     time_double_stance = 0.4
-    short_stance_duration = int(time_double_stance / dt)
-    short_stance_duration = 7
-    # short_stance_duration = 60
+    # short_stance_duration = 7
+    short_stance_duration = 2
     short_stance_phase = c_timelines[c].createPhase(short_stance_duration, f'short_stance_{c}')
     short_stance_phase.addItem(ti.getTask(f'foot_contact_{c}'))
 
-    time_flight = step_time
-    flight_duration = int(time_flight / dt)
-    flight_duration = 15
-    # flight_duration = 60
+    # flight_duration = 15
+    flight_duration = 10
     flight_phase = c_timelines[c].createPhase(flight_duration, f'flight_{c}')
     init_z_foot = model.kd.fk(c)(q=model.q0)['ee_pos'].elements()[2]
     ref_trj = np.zeros(shape=[7, flight_duration])
@@ -312,8 +306,29 @@ for cname, cforces in ti.model.cmap.items():
     for c in cforces:
         c.setInitialGuess(f0)
 
-for contact, force in model.getForceMap().items():
-    force_z_ref[contact].assign(f0[2])
+# for contact, force in model.getForceMap().items():
+#     force_z_ref[contact].assign(f0[2])
+
+'''
+Straigh legs
+'''
+
+com_vel = model.kd.centerOfMass()(q=model.q, v=model.v, a=model.a)['vcom']
+sum_f = 0
+for cname, cforce in model.getForceMap().items():
+    rot = model.kd.fk(cname)(q=model.q)['ee_rot']
+    w_force = cs.mtimes(rot, cforce)
+    sum_f += w_force
+    # sum_f += cforce
+
+W_com = cs.mtimes(sum_f.T, com_vel)
+prb.createIntermediateResidual('min_com_power', W_com)
+
+J_l = model.kd.jacobian('l_sole', model.kd_frame)(q=model.q)['J']
+J_r = model.kd.jacobian('r_sole', model.kd_frame)(q=model.q)['J']
+
+prb.createResidual('singularity_left', 1000 * utils.barrier(cs.sqrt(cs.det(cs.mtimes(J_l, J_l.T))) - 0.1))
+prb.createResidual('singularity_right', 1000 * utils.barrier(cs.sqrt(cs.det(cs.mtimes(J_r, J_r.T))) - 0.1))
 
 # finalize taskInterface and solve bootstrap problem
 ti.finalize()
@@ -325,10 +340,11 @@ iteration = 0
 rate = rospy.Rate(1 / dt)
 
 contact_list_repl = list(model.cmap.keys())
+
 repl = replay_trajectory.replay_trajectory(dt, model.kd.joint_names(), np.array([]),
                                            {k: None for k in model.fmap.keys()},
-                                           model.kd_frame, model.kd, trajectory_markers=contact_list_repl,
-                                           fixed_joint_map=fixed_joint_map)
+                                           model.kd_frame, model.kd, trajectory_markers=contact_list_repl)
+                                           # fixed_joint_map=fixed_joint_map)
 
 
 def step(swing, stance):

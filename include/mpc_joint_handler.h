@@ -3,7 +3,7 @@
 
 #include "resampler.h"
 #include "mpc_handler.h"
-#include <kyon_controller/WBTrajectory.h>
+#include <cogimon_controller/WBTrajectory.h>
 #include <trajectory_msgs/JointTrajectory.h>
 #include <Eigen/Dense>
 
@@ -33,7 +33,7 @@ private:
 
     void init_publishers_and_subscribers();
 
-    void mpc_joint_callback(const kyon_controller::WBTrajectoryConstPtr msg);
+    void mpc_joint_callback(const cogimon_controller::WBTrajectoryConstPtr msg);
 
     void smooth(const Eigen::VectorXd state, const Eigen::VectorXd in, Eigen::VectorXd& out);
 
@@ -65,7 +65,7 @@ private:
     std::map<std::string, double> _fixed_joints_map;
 
     Eigen::VectorXd _x, _u;
-    kyon_controller::WBTrajectory _mpc_solution, _old_solution;
+    cogimon_controller::WBTrajectory _mpc_solution, _old_solution;
     Resampler::UniquePtr _resampler;
 
     // XBot::FlushMeMaybe::Ptr _flusher;

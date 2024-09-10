@@ -314,6 +314,39 @@ Eigen::VectorXd Resampler::mapToQ(std::unordered_map<std::string, double> jmap)
     return joint_pos;
 }
 
+void Resampler::getMinimalJointMap(std::unordered_map<std::string, double>& jmap)
+{
+    jmap.clear();
+
+    std::vector<std::string> jnames = _model.names;
+    Eigen::VectorXd q = _x.segment(0, _model.nq);
+    int i = 0;
+
+    for (auto jname : jnames)
+    {
+        size_t jidx = _model.getJointId(jname);
+        size_t nq = _model.nqs[jidx];
+
+        if (nq == 1)
+        {
+            double jpos = q[i];
+            jmap.insert(std::make_pair(jname, jpos));
+            i += 1;
+        }
+        else if (nq == 2)
+        {
+            double jpos = atan2(q[i], q[i+1]);
+            jmap.insert(std::make_pair(jname, jpos));
+            i += 2;
+        }
+        else
+        {
+            // ignore fb and other joints
+            i += nq;
+        }
+    }
+}
+
 Eigen::VectorXd Resampler::getMinimalQ(Eigen::VectorXd q)
 {
     // add guards if q input by user is not of dimension nq()

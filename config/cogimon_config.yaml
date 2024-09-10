@@ -22,7 +22,7 @@ costs:
   - final_base_xy
   - com_height
   - joint_posture_legs
-  - joint_posture_upper_body
+#  - joint_posture_upper_body
   - base_orientation
   - base_yaw_orientation
   - rot_l_sole
@@ -36,7 +36,7 @@ costs:
 .define:
     - &w_com 20.
     - &w_base_ori 50.
-    - &w_base_xy 10.
+    - &w_base_xy 50.
     - &w_contact_z 1000.
     - &w_postural 1.
     - &w_postural_ub 1.
@@ -63,7 +63,7 @@ com_height:
 
 base_orientation:
   type: Cartesian
-  distal_link: DWYTorso
+  distal_link: base_link
   indices: [3, 4]
   nodes: all
   weight: *w_base_ori
@@ -79,7 +79,7 @@ base_yaw_orientation:
 rot_l_sole:
   type: Cartesian
   distal_link: l_sole
-  indices: [3, 4]
+  indices: [3, 5]
   nodes: all
   cartesian_type: velocity
   weight: *w_sole_rot
@@ -87,7 +87,7 @@ rot_l_sole:
 rot_r_sole:
   type: Cartesian
   distal_link: r_sole
-  indices: [3, 4]
+  indices: [3, 5]
   nodes: all
   cartesian_type: velocity
   weight: *w_sole_rot
@@ -99,7 +99,7 @@ interaction_l_foot:
   frame: l_sole
   fn_min: 10.0
   friction_coeff: 0.5
-  enable_fc: false
+  enable_fc: true
   vertex_frames:
     - l_foot_lower_left_link
     - l_foot_upper_left_link
@@ -117,7 +117,7 @@ interaction_r_foot:
   frame: r_sole
   fn_min: 10.0
   friction_coeff: 0.5
-  enable_fc: false
+  enable_fc: true
   vertex_frames:
     - r_foot_lower_left_link
     - r_foot_upper_left_link
@@ -144,7 +144,7 @@ foot_contact_r_sole:
 joint_posture_legs:
   type: Postural
   weight: *w_postural
-  indices: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+#  indices: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
   nodes: all
 
 joint_posture_upper_body:

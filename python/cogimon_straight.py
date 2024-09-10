@@ -31,6 +31,36 @@ import numpy as np
 import subprocess
 import os
 
+robot = None
+def play_on_robot(solution, model:FullModelInverseDynamics):
+    if robot is None:
+        raise print('RobotInterface not available')
+
+    q = np.empty(solution['q'].shape)
+    qdot = np.empty(solution['v'].shape)
+    qddot = np.empty(solution['a'].shape)
+    tau = np.empty(solution['a'].shape)
+
+    for i in range(solution['a'].shape[1]):
+        q[:, i] = solution['q'][:, i]
+        qdot[:, i] = solution['v'][:, i]
+        qddot[:, i] = solution['a'][:, i]
+
+        force_map = dict()
+        for frame in model.fmap:
+            force_map.update({frame: solution[f'f_{frame}'][:, i]})
+
+        tau[:, i] = np.array(model.id_fn.call(q[:, i], qdot[:, i], qddot[:, i], force_map)).flatten()
+
+    # execute
+    for i in range(q.shape[1]):
+        robot.setPositionReference(q[7:, i])
+        robot.setVelocityReference(qdot[6:, i])
+        robot.setEffortReference(tau[6:, i])
+        robot.move()
+        rospy.sleep(dt)
+
+
 rospy.init_node('cogimon_straight_node')
 
 '''
@@ -61,15 +91,26 @@ qhome = model_xbot.getRobotState("home")
 model_xbot.setJointPosition(qhome)
 model_xbot.update()
 
-q_init = model_xbot.getJointPositionMap()
+try:
+    robot = xbot.RobotInterface(cfg)
+    print('RobotInterface created!')
+except:
+    print('RobotInterface not created')
+
+if robot is not None:
+    q = robot.getPositionReference()
+    q_init = robot.eigenToMap(q)
+else:
+    q_init = model_xbot.getJointPositionMap()
+
 base_pose = np.array([0.03, 0., 0.962, 0., -0.029995, 0.0, 0.99955])
 base_twist = np.zeros(6)
 
 '''
 Initialize Horizon problem
 '''
-ns = 210
-T = 10
+ns = 120
+T = 5
 dt = T / ns
 
 prb = Problem(ns, receding=True, casadi_type=cs.SX)
@@ -82,17 +123,63 @@ model = FullModelInverseDynamics(problem=prb,
                                  q_init=q_init,
                                  base_init=base_pose)
 
+white_list_indices = list()
+white_list = ['LHipSag', 'LHipLat', 'RHipSag', 'RHipLat']
+for joint in white_list:
+    white_list_indices.append(model.joint_names.index(joint))
+prb.createResidual('postural_white_list', 1. * model.q[white_list_indices])
+
 qmin = np.array(model.kd.q_min())
 qmax = np.array(model.kd.q_max())
 prb.createResidual("q_limit_lower", 100 * utils.barrier(model.q - qmin))
 prb.createResidual("q_limit_upper", 100 * utils.barrier1(model.q - qmax))
 
+cd_fun = model.kd.computeCentroidalDynamics()
+h_lin, h_ang, dh_lin, dh_ang = cd_fun(model.q, model.v, model.a)
+# prb.createIntermediateResidual('min_angular_mom', 1e-1 * dh_ang)
+
 rospy.set_param('/robot_description', urdf)
-bashCommand = 'rosrun robot_state_publisher robot_state_publisher robot_description:=robot_description'
+bashCommand = 'rosrun robot_state_publisher robot_state_publisher'
 process = subprocess.Popen(bashCommand.split(), start_new_session=True)
 
 ti = TaskInterface(prb=prb, model=model)
 ti.setTaskFromYaml(rospkg.RosPack().get_path('cogimon_controller') + '/config/cogimon_straight_config.yaml')
+
+def cop_lims_fun(model:FullModelInverseDynamics, frame:str):
+    fl = 0.23
+    hl = 0.06
+    al = 0.1
+    tl = 0.07
+    eps = 0.01
+    K = 1000
+
+    q = cs.SX.sym('q', model.nq)
+
+    # compute pitch angle of the foot
+    R = model.kd.fk(frame)(q=q)['ee_rot']
+    theta = cs.atan2(-R[2, 0], cs.sqrt(R[0, 0]**2 + R[1, 0]**2))
+
+    min = -hl + (al + hl) * 1 / (1 + cs.exp(-K * (theta - 0.004)))
+    # min = hl + eps + (-al - hl) * 1 / (1 + cs.exp(-K * (theta - 0.004)))
+    max = -hl + eps + (fl-hl + hl) * 1 / (1 + cs.exp(-K * (theta + 0.004)))
+    # max = hl + (-fl+hl - hl) * 1 / (1 + cs.exp(-K * (theta + 0.004)))
+
+    input_list = [q]
+    output_list = [min, max]
+
+    f = cs.Function('cop_lims', input_list, output_list, ['q'], ['min', 'max'])
+    return f
+
+for frame, wrench in model.getForceMap().items():
+    cop_lims = cop_lims_fun(model, frame)
+    c_rot = model.kd.fk(frame)(q=model.q)['ee_rot']
+    f_local = c_rot.T @ wrench[:3]
+    t_local = c_rot.T @ wrench[3:]
+    # prb.createIntermediateResidual(f'min_pitch_cop_{frame}', 10 * utils.barrier(t_local[1] + f_local[2] * cop_lims(q=model.q)['min']))
+    # prb.createIntermediateResidual(f'max_pitch_cop_{frame}', 10 * utils.barrier1(t_local[1] - f_local[2] * cop_lims(q=model.q)['max']))
+
+    # prb.createIntermediateResidual(f'min_pitch_cop_{frame}', 10 * utils.barrier(wrench[4] + wrench[2] * cop_lims(q=model.q)['min']))
+    # prb.createIntermediateResidual(f'max_pitch_cop_{frame}', 10 * utils.barrier1(wrench[4] - wrench[2] * cop_lims(q=model.q)['max']))
 
 '''
 Foot vertices relative distance constraint
@@ -104,14 +191,15 @@ rel_dist = base_ori.T @ (pos_lf - pos_rf)
 
 # prb.createResidual('relative_distance_lower_x', utils.barrier(rel_dist[0] + 0.3))
 # prb.createResidual('relative_distance_upper_x', utils.barrier1(rel_dist[0] - 0.4))
-prb.createResidual('relative_distance_lower_y', 10. * utils.barrier(rel_dist[1] - 0.21))
-# prb.createResidual('relative_distance_upper_y', 10. * utils.barrier1(rel_dist[1] - 0.35))
+prb.createResidual('relative_distance_lower_y', 100. * utils.barrier(rel_dist[1] - 0.15))
+# prb.createResidual('relative_distance_upper_y', 100. * utils.barrier1(rel_dist[1] - 0.35))
 
-# force_z_ref = dict()
-# for contact, force in model.getForceMap().items():
-#     print(f'{contact}: {force}')
-#     force_z_ref[contact] = prb.createParameter(f'{contact}_force_z_ref', 1)
-#     prb.createIntermediateResidual(f'{contact}_force_z_reg', 0.001 * (force[2] - force_z_ref[contact]))
+weight = np.empty([1, 6])
+w_force = 0.
+w_torque = 1.0
+weight = np.atleast_2d(np.array([w_force, w_force, w_force, w_torque, w_torque, w_torque]))
+for contact, force in model.getForceMap().items():
+    prb.createIntermediateResidual(f'force_regularization_{contact}', cs.dot(weight.T, force))
 
 tg = trajectoryGenerator.TrajectoryGenerator()
 
@@ -123,27 +211,20 @@ for c in model.cmap:
 
 for c in model.cmap:
     # stance phase
-    stance_duration = 15
+    stance_duration = 12
     stance_phase = c_timelines[c].createPhase(stance_duration, f'stance_{c}')
     stance_phase.addItem(ti.getTask(f'foot_contact_{c}'))
 
-    short_stance_duration = 7
+    short_stance_duration = 2
     short_stance_phase = c_timelines[c].createPhase(short_stance_duration, f'short_stance_{c}')
     short_stance_phase.addItem(ti.getTask(f'foot_contact_{c}'))
 
-    flight_duration = 15
+    flight_duration = 12
     flight_phase = c_timelines[c].createPhase(flight_duration, f'flight_{c}')
     init_z_foot = model.kd.fk(c)(q=model.q0)['ee_pos'].elements()[2]
     ref_trj = np.zeros(shape=[7, flight_duration])
     ref_trj[2, :] = np.atleast_2d(tg.from_derivatives(flight_duration, init_z_foot, init_z_foot, 0.05, [None, 0, None]))
     flight_phase.addItemReference(ti.getTask(f'foot_z_{c}'), ref_trj)
-
-# for c in model.cmap:
-#     stance = c_timelines[c].getRegisteredPhase(f'stance_{c}')
-#     flight = c_timelines[c].getRegisteredPhase(f'flight_{c}')
-#     short_stance = c_timelines[c].getRegisteredPhase(f'short_stance_{c}')
-#     while c_timelines[c].getEmptyNodes() > 0:
-#         c_timelines[c].addPhase(stance)
 
 def step(swing, stance):
     c_timelines[swing].addPhase(c_timelines[swing].getRegisteredPhase(f'flight_{swing}'))
@@ -157,27 +238,48 @@ def stand():
         c_timelines[c].addPhase(stance)
 
 
+stand()
+step('l_sole', 'r_sole')
+step('r_sole', 'l_sole')
+step('l_sole', 'r_sole')
+step('r_sole', 'l_sole')
+step('l_sole', 'r_sole')
+# step('r_sole', 'l_sole')
+# step('l_sole', 'r_sole')
+# step('r_sole', 'l_sole')
+
 for c in model.cmap:
     while c_timelines[c].getEmptyNodes() > 0:
-        # step('l_sole', 'r_sole')
-        # step('r_sole', 'l_sole')
         stand()
 
-ti.getTask('final_base_xy').setRef(np.atleast_2d([2, 0, 0, 0, 0, 0, 0]).T)
+ti.getTask('final_base_xy').setRef(np.atleast_2d([2.0, 0, 0, 0, 0, 0, 0]).T)
+
+com_vel = model.kd.centerOfMass()(q=model.q, v=model.v, a=model.a)['vcom']
+sum_f = 0
+for cname, cforce in model.getForceMap().items():
+    rot = model.kd.fk(cname)(q=model.q)['ee_rot']
+    w_force = cs.mtimes(rot, cforce[:3])
+    sum_f += w_force
+    # sum_f += cforce[:3]
+
+W_com = cs.mtimes(sum_f.T, com_vel)
+# prb.createIntermediateResidual('min_com_power', 0.5 * W_com)
 
 J_l = model.kd.jacobian('l_sole', model.kd_frame)(q=model.q)['J']
 J_r = model.kd.jacobian('r_sole', model.kd_frame)(q=model.q)['J']
 
-# prb.createResidual('singularity_left', 10 * utils.barrier(cs.det(J_l @ J_l.T) - 50))
-# prb.createResidual('singularity_right', 10 * utils.barrier(cs.det(J_r @ J_r.T) - 50))
+prb.createResidual('singularity_left', 100 * utils.barrier(cs.sqrt(cs.det(cs.mtimes(J_l, J_l.T))) - 0.1))
+prb.createResidual('singularity_right', 100 * utils.barrier(cs.sqrt(cs.det(cs.mtimes(J_r, J_r.T))) - 0.1))
 
 model.q.setBounds(model.q0, model.q0, nodes=0)
+# model.q[3:18].setBounds(model.q0[3:18], model.q0[3:18], nodes=ns)
 model.v.setBounds(model.v0, model.v0, nodes=0)
 model.v.setBounds(model.v0, model.v0, nodes=ns)
-model.q.setInitialGuess(ti.model.q0)
 
-# prb.createFinalConstraint('cazzi', model.v)
-f0 = [0, 0, kin_dyn.mass() / 8 * 9.8]
+model.q.setInitialGuess(model.q0)
+model.v.setInitialGuess(model.v0)
+
+f0 = [0, 0, kin_dyn.mass() / 8 * 9.8, 0, 0, 0]
 for cname, cforces in ti.model.cmap.items():
     for c in cforces:
         c.setInitialGuess(f0)
@@ -195,7 +297,10 @@ solution = ti.solution
 contact_list_repl = list(model.cmap.keys())
 repl = replay_trajectory.replay_trajectory(prb.getDt(), kin_dyn.joint_names(), solution['q'], kindyn=kin_dyn, trajectory_markers=contact_list_repl)
 
-repl.replay()
+if robot is not None:
+    play_on_robot(solution, model)
+else:
+    repl.replay()
 
 
 

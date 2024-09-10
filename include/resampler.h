@@ -34,6 +34,7 @@ public:
 
     Eigen::VectorXd mapToQ(std::unordered_map<std::string, double> jmap);
     Eigen::VectorXd getMinimalQ(Eigen::VectorXd q);
+    void getMinimalJointMap(std::unordered_map<std::string, double>& jmap);
 
     void resample(double dt_res);
 
