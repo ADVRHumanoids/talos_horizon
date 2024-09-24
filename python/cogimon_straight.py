@@ -109,7 +109,8 @@ base_twist = np.zeros(6)
 '''
 Initialize Horizon problem
 '''
-ns = 120
+scale = 3
+ns = 120 * scale
 T = 5
 dt = T / ns
 
@@ -124,7 +125,9 @@ model = FullModelInverseDynamics(problem=prb,
                                  base_init=base_pose)
 
 white_list_indices = list()
-white_list = ['LHipSag', 'LHipLat', 'RHipSag', 'RHipLat']
+# white_list = ['LHipSag', 'LHipLat']
+# white_list = ['LAnklePitch', 'RAnklePitch']
+white_list = ['LHipLat', 'RHipLat', 'LAnklePitch', 'RAnklePitch']
 for joint in white_list:
     white_list_indices.append(model.joint_names.index(joint))
 prb.createResidual('postural_white_list', 1. * model.q[white_list_indices])
@@ -149,9 +152,9 @@ def cop_lims_fun(model:FullModelInverseDynamics, frame:str):
     fl = 0.23
     hl = 0.06
     al = 0.1
-    tl = 0.07
+    tl = 0.03
     eps = 0.01
-    K = 1000
+    K = 500
 
     q = cs.SX.sym('q', model.nq)
 
@@ -159,9 +162,9 @@ def cop_lims_fun(model:FullModelInverseDynamics, frame:str):
     R = model.kd.fk(frame)(q=q)['ee_rot']
     theta = cs.atan2(-R[2, 0], cs.sqrt(R[0, 0]**2 + R[1, 0]**2))
 
-    min = -hl + (al + hl) * 1 / (1 + cs.exp(-K * (theta - 0.004)))
+    min = -hl + (al + hl) * 1 / (1 + cs.exp(-K * (theta - 0.01)))
     # min = hl + eps + (-al - hl) * 1 / (1 + cs.exp(-K * (theta - 0.004)))
-    max = -hl + eps + (fl-hl + hl) * 1 / (1 + cs.exp(-K * (theta + 0.004)))
+    max = -hl + eps + (al+tl + hl-eps) * 1 / (1 + cs.exp(-K * (theta + 0.01)))
     # max = hl + (-fl+hl - hl) * 1 / (1 + cs.exp(-K * (theta + 0.004)))
 
     input_list = [q]
@@ -175,11 +178,9 @@ for frame, wrench in model.getForceMap().items():
     c_rot = model.kd.fk(frame)(q=model.q)['ee_rot']
     f_local = c_rot.T @ wrench[:3]
     t_local = c_rot.T @ wrench[3:]
-    # prb.createIntermediateResidual(f'min_pitch_cop_{frame}', 10 * utils.barrier(t_local[1] + f_local[2] * cop_lims(q=model.q)['min']))
-    # prb.createIntermediateResidual(f'max_pitch_cop_{frame}', 10 * utils.barrier1(t_local[1] - f_local[2] * cop_lims(q=model.q)['max']))
+    prb.createIntermediateResidual(f'min_pitch_cop_{frame}', 100 * utils.barrier1(t_local[1] + f_local[2] * cop_lims(q=model.q)['min']))
+    prb.createIntermediateResidual(f'max_pitch_cop_{frame}', 100 * utils.barrier1(-t_local[1] - f_local[2] * cop_lims(q=model.q)['max']))
 
-    # prb.createIntermediateResidual(f'min_pitch_cop_{frame}', 10 * utils.barrier(wrench[4] + wrench[2] * cop_lims(q=model.q)['min']))
-    # prb.createIntermediateResidual(f'max_pitch_cop_{frame}', 10 * utils.barrier1(wrench[4] - wrench[2] * cop_lims(q=model.q)['max']))
 
 '''
 Foot vertices relative distance constraint
@@ -196,10 +197,10 @@ prb.createResidual('relative_distance_lower_y', 100. * utils.barrier(rel_dist[1]
 
 weight = np.empty([1, 6])
 w_force = 0.
-w_torque = 1.0
+w_torque = 10.0
 weight = np.atleast_2d(np.array([w_force, w_force, w_force, w_torque, w_torque, w_torque]))
 for contact, force in model.getForceMap().items():
-    prb.createIntermediateResidual(f'force_regularization_{contact}', cs.dot(weight.T, force))
+    prb.createIntermediateResidual(f'force_regularization_{contact}', weight @ force)
 
 tg = trajectoryGenerator.TrajectoryGenerator()
 
@@ -211,15 +212,18 @@ for c in model.cmap:
 
 for c in model.cmap:
     # stance phase
-    stance_duration = 12
+    stance_duration = 12 * scale
     stance_phase = c_timelines[c].createPhase(stance_duration, f'stance_{c}')
     stance_phase.addItem(ti.getTask(f'foot_contact_{c}'))
+    pitch_ref = np.zeros(shape=[7, stance_duration - 4])
+    pitch_ref[6, :] = np.ones(shape=[1, stance_duration - 4])
+    stance_phase.addItemReference(ti.getTask(f'pitch_{c}'), pitch_ref, nodes=range(2, stance_duration-2))
 
-    short_stance_duration = 2
+    short_stance_duration = 2 * scale
     short_stance_phase = c_timelines[c].createPhase(short_stance_duration, f'short_stance_{c}')
     short_stance_phase.addItem(ti.getTask(f'foot_contact_{c}'))
 
-    flight_duration = 12
+    flight_duration = 12 * scale
     flight_phase = c_timelines[c].createPhase(flight_duration, f'flight_{c}')
     init_z_foot = model.kd.fk(c)(q=model.q0)['ee_pos'].elements()[2]
     ref_trj = np.zeros(shape=[7, flight_duration])
@@ -252,18 +256,19 @@ for c in model.cmap:
     while c_timelines[c].getEmptyNodes() > 0:
         stand()
 
-ti.getTask('final_base_xy').setRef(np.atleast_2d([2.0, 0, 0, 0, 0, 0, 0]).T)
+ti.getTask('final_base_xy').setRef(np.atleast_2d([1.5, 0, 0, 0, 0, 0, 0]).T)
 
 com_vel = model.kd.centerOfMass()(q=model.q, v=model.v, a=model.a)['vcom']
 sum_f = 0
 for cname, cforce in model.getForceMap().items():
     rot = model.kd.fk(cname)(q=model.q)['ee_rot']
-    w_force = cs.mtimes(rot, cforce[:3])
+    w_force = cs.mtimes(rot.T, cforce[:3])
     sum_f += w_force
     # sum_f += cforce[:3]
 
 W_com = cs.mtimes(sum_f.T, com_vel)
-# prb.createIntermediateResidual('min_com_power', 0.5 * W_com)
+W_com = sum_f.T @ com_vel
+prb.createIntermediateResidual('min_com_power', 0.5 * W_com)
 
 J_l = model.kd.jacobian('l_sole', model.kd_frame)(q=model.q)['J']
 J_r = model.kd.jacobian('r_sole', model.kd_frame)(q=model.q)['J']
@@ -272,7 +277,7 @@ prb.createResidual('singularity_left', 100 * utils.barrier(cs.sqrt(cs.det(cs.mti
 prb.createResidual('singularity_right', 100 * utils.barrier(cs.sqrt(cs.det(cs.mtimes(J_r, J_r.T))) - 0.1))
 
 model.q.setBounds(model.q0, model.q0, nodes=0)
-# model.q[3:18].setBounds(model.q0[3:18], model.q0[3:18], nodes=ns)
+model.q[3:18].setBounds(model.q0[3:18], model.q0[3:18], nodes=ns)
 model.v.setBounds(model.v0, model.v0, nodes=0)
 model.v.setBounds(model.v0, model.v0, nodes=ns)
 
@@ -293,6 +298,63 @@ ti.finalize()
 ti.bootstrap()
 
 solution = ti.solution
+
+import math
+cop_min_l_sole = list()
+cop_max_l_sole = list()
+cop_min_r_sole = list()
+cop_max_r_sole = list()
+
+theta_l_sole = list()
+theta_r_sole = list()
+rot_force_l_sole = np.empty(shape=[6, solution['q'].shape[1] + 1])
+
+for i in range(solution['a'].shape[1]):
+    q = solution['q'][:, i]
+    cop_lims_l_sole = cop_lims_fun(model, 'l_sole')
+    cop_lims_r_sole = cop_lims_fun(model, 'r_sole')
+    cop_min_l_sole.append(cop_lims_l_sole(q=q)['min'])
+    cop_max_l_sole.append(cop_lims_l_sole(q=q)['max'])
+    cop_min_r_sole.append(cop_lims_r_sole(q=q)['min'])
+    cop_max_r_sole.append(cop_lims_r_sole(q=q)['max'])
+
+    R_l_sole = model.kd.fk('l_sole')(q=solution['q'][:, i])['ee_rot']
+    theta_l_sole.append(math.atan2(-R_l_sole[2, 0], math.sqrt(R_l_sole[0, 0] ** 2 + R_l_sole[1, 0] ** 2)))
+    rot_force_l_sole[:, i] = np.vstack([R_l_sole.T @ solution['f_l_sole'][:3, i], R_l_sole.T @ solution['f_l_sole'][3:, i]]).flatten()
+
+    R_r_sole = model.kd.fk('r_sole')(q=solution['q'][:, i])['ee_rot']
+    theta_r_sole.append(math.atan2(-R_r_sole[2, 0], math.sqrt(R_r_sole[0, 0] ** 2 + R_r_sole[1, 0] ** 2)))
+
+
+
+import matplotlib.pyplot as plt
+cop_min_l_sole_list = [elem.elements()[0] for elem in cop_min_l_sole]
+cop_min_r_sole_list = [elem.elements()[0] for elem in cop_min_r_sole]
+cop_max_l_sole_list = [elem.elements()[0] for elem in cop_max_l_sole]
+cop_max_r_sole_list = [elem.elements()[0] for elem in cop_max_r_sole]
+
+fig, a = plt.subplots()
+a.plot(cop_min_l_sole_list)
+a.plot(cop_max_l_sole_list)
+a.plot(theta_l_sole)
+a.grid()
+
+fig2, axs = plt.subplots(nrows=3, ncols=1)
+axs[0].plot(rot_force_l_sole[4, :])
+axs[1].plot(rot_force_l_sole[0, :], label='Fx')
+axs[1].plot(rot_force_l_sole[1, :], label='Fy')
+axs[1].plot(rot_force_l_sole[2, :], label='Fz')
+axs[2].plot(solution['f_l_sole'][0, :], label='Fx')
+axs[2].plot(solution['f_l_sole'][1, :], label='Fy')
+axs[2].plot(solution['f_l_sole'][2, :], label='Fz')
+for i in range(solution['f_l_sole'].shape[1]):
+    axs[2].arrow(x=i, y=0, dx=solution['f_l_sole'][0, i], dy=solution['f_l_sole'][2, i], color=[0.658, 0, 0])
+axs[1].legend()
+axs[2].legend()
+axs[0].grid()
+axs[1].grid()
+axs[2].grid()
+plt.show()
 
 contact_list_repl = list(model.cmap.keys())
 repl = replay_trajectory.replay_trajectory(prb.getDt(), kin_dyn.joint_names(), solution['q'], kindyn=kin_dyn, trajectory_markers=contact_list_repl)

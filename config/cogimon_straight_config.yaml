@@ -9,7 +9,7 @@ solver:
   ilqr.codegen_enabled: true
   ilqr.codegen_workdir: /tmp/miao
   ilqr.enable_gn: true
-  ilqr.max_iter: 100
+  ilqr.max_iter: 500
   ipopt.print_level: 5
   ipopt.suppress_all_output: 'yes'
   ipopt.sb: 'yes'
@@ -21,13 +21,15 @@ constraints:
 
 costs:
   - final_base_xy
-  - com_height
+#  - com_height
 #  - joint_posture_legs
 #  - joint_posture_upper_body
   - base_orientation
 #  - torso_orientation
   - rot_l_sole
+  - pitch_l_sole
   - rot_r_sole
+  - pitch_r_sole
   - foot_z_l_sole
   - foot_z_r_sole
   - joint_regularization
@@ -83,12 +85,26 @@ rot_l_sole:
   cartesian_type: velocity
   weight: *w_sole_rot
 
+pitch_l_sole:
+  type: Cartesian
+  distal_link: l_sole
+  indices: [4]
+  cartesian_type: position
+  weight: *w_sole_rot
+
 rot_r_sole:
   type: Cartesian
   distal_link: r_sole
   indices: [3, 5]
   nodes: all
   cartesian_type: velocity
+  weight: *w_sole_rot
+
+pitch_r_sole:
+  type: Cartesian
+  distal_link: r_sole
+  indices: [4]
+  cartesian_type: position
   weight: *w_sole_rot
 
 # ===============================
