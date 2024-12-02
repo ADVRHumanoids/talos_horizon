@@ -16,6 +16,7 @@ find_package(Eigen3 REQUIRED)
 find_package(urdfdom REQUIRED)
 find_package(pinocchio REQUIRED)
 find_package(XBotInterface REQUIRED)
+find_package(unitree_sdk2 REQUIRED)
 
 
 include_directories(
@@ -23,7 +24,8 @@ include_directories(
     ${catkin_INCLUDE_DIRS}
     ${EIGEN3_INCLUDE_DIRS}
     ${PINOCCHIO_INCLUDE_DIRS}
-    ${XBotInterface_INCLUDE_DIRS})
+    ${XBotInterface_INCLUDE_DIRS}
+    ${unitree_sdk2_INCLUDE_DIRS})
 
 
 add_message_files(
@@ -50,6 +52,13 @@ add_executable(controller
 target_link_libraries(controller
     mpc_handler
     ${catkin_LIBRARIES})
+
+add_library(RobotInterfaceUnitree
+    src/RobotInterfaceUnitree.cpp)
+
+target_link_libraries(RobotInterfaceUnitree
+    ${XBotInterface_LIBRARIES}
+    ${unitree_sdk2_LIBRARIES})
 
 install(TARGETS controller
 ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
