@@ -1,6 +1,8 @@
 #ifndef RESAMPLER_H
 #define RESAMPLER_H
 
+#include <unordered_map>
+
 #include <pinocchio/algorithm/model.hpp>
 #include <pinocchio/parsers/urdf.hpp>
 #include <pinocchio/algorithm/rnea.hpp>

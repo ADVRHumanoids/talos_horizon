@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.1.0)
 project(cogimon_controller)
 
-add_compile_options(-std=c++17)
+set(CMAKE_CXX_STANDARD 17)
 
 find_package(catkin REQUIRED COMPONENTS
              roscpp
@@ -16,6 +16,7 @@ find_package(Eigen3 REQUIRED)
 find_package(urdfdom REQUIRED)
 find_package(pinocchio REQUIRED)
 find_package(XBotInterface REQUIRED)
+find_package(unitree_sdk2 REQUIRED)
 
 
 include_directories(
@@ -51,6 +52,13 @@ target_link_libraries(controller
     mpc_handler
     ${catkin_LIBRARIES})
 
+add_library(RobotInterfaceUnitree
+    src/RobotInterfaceUnitree.cpp)
+
+target_link_libraries(RobotInterfaceUnitree
+    ${XBotInterface_LIBRARIES}
+    unitree_sdk2)
+
 install(TARGETS controller
 ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
@@ -71,6 +79,12 @@ target_link_libraries(mpc_handler
 )
 
 install(TARGETS mpc_handler
+ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
+
+install(TARGETS RobotInterfaceUnitree
 ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
