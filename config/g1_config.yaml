@@ -1,0 +1,262 @@
+solver:
+  type: ilqr
+  ipopt.linear_solver: ma57
+  ilqr.constr_viol_tol: 1e-9
+  ipopt.tol: 1e-9
+  ipopt.constr_viol_tol: 1e-9
+#  ipopt.hessian_approximation: exact
+  ilqr.verbose: false
+  ilqr.codegen_enabled: true
+  ilqr.codegen_workdir: /tmp/miao
+  ilqr.enable_gn: true
+  ipopt.print_level: 5
+  ipopt.suppress_all_output: 'yes'
+  ipopt.sb: 'yes'
+  print_time: 0
+
+constraints:
+  - foot_contact_l
+  - foot_contact_r
+
+costs:
+  - base_xy
+  - base_z
+  - joint_posture_legs
+#  - joint_posture_upper_body
+  - base_orientation
+  - base_yaw_orientation
+  - foot_rot_l
+  - foot_rot_r
+  - foot_z_l
+  - foot_z_r
+  - velocity_regularization
+  - acceleration_regularization
+  - f_left_regularization_0
+  - f_left_regularization_1
+  - f_left_regularization_2
+  - f_left_regularization_3
+  - f_right_regularization_0
+  - f_right_regularization_1
+  - f_right_regularization_2
+  - f_right_regularization_3
+#  - zero_vel_xy_r_sole
+#  - zero_vel_xy_l_sole
+#  - joint_regularization #, foot_z_l_sole, foot_z_r_sole] # com_height
+
+.define:
+    - &w_base_z 1.
+    - &w_base_ori 50.
+    - &w_base_xy 50.
+    - &w_contact_z 1000.
+    - &w_postural 1.
+    - &w_postural_ub 1.
+    - &w_v 1
+    - &w_a 1e-2
+    - &w_f 0.006 #1e-3
+    - &w_sole_rot 1000.
+    - &w_ball_xy 10.
+    - &w_postural_roll 1.
+
+base_xy:
+  type: Cartesian
+  distal_link: torso_link
+  indices: [0, 1]
+  nodes: ${[N]}
+  weight: *w_base_xy
+
+base_z:
+  type: Cartesian
+  distal_link: torso_link
+  indices: [2]
+  nodes: all
+  weight: *w_base_z
+
+base_orientation:
+  type: Cartesian
+  distal_link: torso_link
+  indices: [3, 4]
+  nodes: all
+  weight: *w_base_ori
+
+base_yaw_orientation:
+  type: Cartesian
+  distal_link: torso_link
+  indices: [5]
+  nodes: all
+  weight: *w_base_ori
+
+foot_rot_l:
+  type: Cartesian
+  distal_link: l_sole
+  indices: [3, 4, 5]
+  nodes: all
+#  cartesian_type: position
+  weight: *w_sole_rot
+
+foot_rot_r:
+  type: Cartesian
+  distal_link: r_sole
+  indices: [3, 4, 5]
+  nodes: all
+#  cartesian_type: position
+  weight: *w_sole_rot
+
+# ===============================
+
+foot_interaction_l:
+  type: VertexForce
+  frame: l_sole
+  fn_min: 10.0
+  friction_coeff: 0.5
+  enable_fc: true
+  vertex_frames:
+    - l_sole_lower_left_link
+    - l_sole_upper_left_link
+    - l_sole_lower_right_link
+    - l_sole_upper_right_link
+
+foot_zero_velocity_l:
+  type: Cartesian
+  distal_link: l_sole
+  indices: [0, 1, 2, 5]
+  cartesian_type: velocity
+
+foot_interaction_r:
+  type: VertexForce
+  frame: r_sole
+  fn_min: 10.0
+  friction_coeff: 0.5
+  enable_fc: true
+  vertex_frames:
+    - r_sole_lower_left_link
+    - r_sole_upper_left_link
+    - r_sole_lower_right_link
+    - r_sole_upper_right_link
+
+foot_zero_velocity_r:
+  type: Cartesian
+  distal_link: r_sole
+  indices: [0, 1, 2, 5]
+  cartesian_type: velocity
+
+foot_contact_l:
+  type: Contact
+  subtask: [foot_interaction_l, foot_zero_velocity_l]
+
+foot_contact_r:
+  type: Contact
+  subtask: [foot_interaction_r, foot_zero_velocity_r]
+
+# ==================================
+
+joint_posture_legs:
+  type: Postural
+  weight: *w_postural
+#  indices: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+  nodes: all
+
+#joint_posture_upper_body:
+#  type: Postural
+#  weight: *w_postural_ub
+#  indices: [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24]
+#  nodes: all
+
+velocity_regularization:
+  type: Regularization
+  variable_name: v
+  nodes: all
+  weight: *w_v
+
+acceleration_regularization:
+  type: Regularization
+  variable_name: a
+  nodes: all
+  weight: *w_a # 0.01
+
+f_left_regularization_0:
+  type: Regularization
+  variable_name: f_l_sole_lower_left_link
+  nodes: all
+  weight: *w_f
+
+f_left_regularization_1:
+  type: Regularization
+  variable_name: f_l_sole_lower_right_link
+  nodes: all
+  weight: *w_f
+
+f_left_regularization_2:
+  type: Regularization
+  variable_name: f_l_sole_upper_left_link
+  nodes: all
+  weight: *w_f
+
+f_left_regularization_3:
+  type: Regularization
+  variable_name: f_l_sole_upper_right_link
+  nodes: all
+  weight: *w_f
+
+f_right_regularization_0:
+  type: Regularization
+  variable_name: f_r_sole_lower_left_link
+  nodes: all
+  weight: *w_f
+
+f_right_regularization_1:
+  type: Regularization
+  variable_name: f_r_sole_lower_right_link
+  nodes: all
+  weight: *w_f
+
+f_right_regularization_2:
+  type: Regularization
+  variable_name: f_r_sole_upper_left_link
+  nodes: all
+  weight: *w_f
+
+f_right_regularization_3:
+  type: Regularization
+  variable_name: f_r_sole_upper_right_link
+  nodes: all
+  weight: *w_f
+
+foot_z_l:
+  type: Cartesian
+  distal_link: l_sole
+  indices: [2]
+  cartesian_type: position
+  weight: *w_contact_z
+
+foot_z_r:
+  type: Cartesian
+  distal_link: r_sole
+  indices: [2]
+  cartesian_type: position
+  weight: *w_contact_z
+
+foot_zero_vel_xy_l:
+  type: Cartesian
+  distal_link: l_sole
+  indices: [0, 1]
+  cartesian_type: velocity
+  weight: *w_contact_z
+
+foot_zero_vel_xy_r:
+  type: Cartesian
+  distal_link: r_sole
+  indices: [0, 1]
+  cartesian_type: velocity
+  weight: *w_contact_z
+
+#foot_xy_l_sole:
+#  type: Cartesian
+#  distal_link: l_sole
+#  indices: [0, 1]
+#  cartesian_type: position
+
+#foot_xy_r_sole:
+#  type: Cartesian
+#  distal_link: r_sole
+#  indices: [0, 1]
+#  cartesian_type: position

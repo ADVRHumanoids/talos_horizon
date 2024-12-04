@@ -15,13 +15,18 @@ import casadi_kin_dyn.py3casadi_kin_dyn as casadi_kin_dyn
 import phase_manager.pymanager as pymanager
 import phase_manager.pyphase as pyphase
 import phase_manager.pytimeline as pytimeline
+import phase_manager.pyrosserver as pyrosserver
 
+from horizon.rhc.gait_manager import GaitManager
+from horizon.rhc.ros.gait_manager_ros import GaitManagerROS
+
+from urdf_augment import URDFAugment
 from sensor_msgs.msg import Joy
 from cogimon_controller.msg import WBTrajectory
 from geometry_msgs.msg import PoseStamped, TwistStamped, Vector3, PointStamped
 
 from matplotlib import pyplot as hplt
-
+import time
 from matlogger2 import matlogger
 
 import casadi as cs
@@ -33,10 +38,23 @@ import os
 import colorama
 
 
-global joy_msg
 global base_pose
 global base_twist
 
+'''
+joystick interface
+'''
+joystick_flag = rospy.get_param(param_name='~joy', default=True)
+
+'''
+open/closed loop
+'''
+closed_loop = rospy.get_param(param_name='~closed_loop', default=False)
+
+'''
+xbot
+'''
+xbot_param = rospy.get_param(param_name="~xbot", default=False)
 
 def gt_pose_callback(msg):
     global base_pose
@@ -103,7 +121,7 @@ def incremental_rotate(q_initial: np.quaternion, d_angle, axis) -> np.quaternion
     return q_result
 
 
-rospy.init_node('cogimon_walk_srbd')
+rospy.init_node('g1_walk')
 
 solution_publisher = rospy.Publisher('/mpc_solution', WBTrajectory, queue_size=10)
 
@@ -112,32 +130,38 @@ rospy.Subscriber('/joy', Joy, joy_callback)
 '''
 Load urdf and srdf
 '''
-cogimon_urdf_folder = rospkg.RosPack().get_path('cogimon_urdf')
-cogimon_srdf_folder = rospkg.RosPack().get_path('cogimon_srdf')
+urdf_file = '/home/fruscelli/forest_ws/ros_src/g1_description/urdf/g1_29dof.urdf'
+urdf_aug = URDFAugment(urdf_file)
 
-# urdf = open(cogimon_urdf_folder + '/urdf/cogimon.urdf', 'r').read()
-# srdf = open(cogimon_srdf_folder + '/srdf/cogimon.srdf', 'r').read()
+sole_xy = [0.2, 0.1]
+urdf_aug.addReferenceFrame('l_sole', 'left_ankle_roll_link', origin_xyz=[0, 0, -0.03])
+urdf_aug.addReferenceFrame('r_sole', 'right_ankle_roll_link', origin_xyz=[0, 0, -0.03])
+urdf_aug.addRectangleReferenceFrame('l_sole', size=sole_xy, offset_x=0.03)
+urdf_aug.addRectangleReferenceFrame('r_sole', size=sole_xy, offset_x=0.03)
+urdf = urdf_aug.getXml()
 
-urdf = rospy.get_param('/robot_description', "")
-if urdf == "":
-    raise print("missing mandatory parameter 'urdf'")
-srdf = rospy.get_param('/robot_description_semantic', "")
-if srdf == "":
-    raise print("missing mandatory parameter 'srdf'")
+rospy.set_param('/robot_description', urdf)
 
-file_dir = os.getcwd()
+# urdf = rospy.get_param('/robot_description', "")
+# if urdf == "":
+#     raise print("missing mandatory parameter 'urdf'")
+# srdf = rospy.get_param('/robot_description_semantic', "")
+# if srdf == "":
+#     raise print("missing mandatory parameter 'srdf'")
+
+# file_dir = os.getcwd()
 
 '''
 Build ModelInterface and RobotStatePublisher
 '''
-cfg = co.ConfigOptions()
-cfg.set_urdf(urdf)
-cfg.set_srdf(srdf)
-cfg.generate_jidmap()
-cfg.set_string_parameter('model_type', 'RBDL')
-cfg.set_string_parameter('framework', 'ROS')
-cfg.set_bool_parameter('is_model_floating_base', True)
-
+# cfg = co.ConfigOptions()
+# cfg.set_urdf(urdf)
+# cfg.set_srdf(srdf)
+# cfg.generate_jidmap()
+# cfg.set_string_parameter('model_type', 'RBDL')
+# cfg.set_string_parameter('framework', 'ROS')
+# cfg.set_bool_parameter('is_model_floating_base', True)
+#
 base_pose = None
 base_twist = None
 # try:
@@ -161,39 +185,45 @@ base_twist = None
 #
 # except:
 print(colorama.Fore.CYAN + 'RobotInterface not created' + colorama.Fore.RESET)
-base_pose = np.array([0.03, 0., 0.962, 0., -0.029995, 0.0, 0.99955])
-
-q_init = {#"WaistLat": 0.0,
-          # "WaistYaw": 0.0,
-          # "RShSag": 0.959931,
-          # "RShLat": -0.007266,
-          # "RShYaw": -0.0,
-          # "RElbj": -1.919862,
-          # "RForearmPlate": 0.0,
-          # "RWrj1": -0.523599,
-          # "LShSag": 0.959931,
-          # "LShLat": 0.007266,
-          # "LShYaw": -0.0,
-          # "LElbj": -1.919862,
-          # "LForearmPlate": 0.0,
-          # "LWrj1": -0.523599,
-          "RHipLat": 0.0,
-          "RHipSag": -0.363826,
-          "RHipYaw": 0.0,
-          "RKneePitch": 0.731245,
-          "RAnklePitch": -0.29,
-          # "RAnklePitch": -0.307420,
-          "RAnkleRoll": -0.0,
-          "LHipLat": -0.0,
-          "LHipSag": -0.363826,
-          "LHipYaw": 0.0,
-          "LKneePitch": 0.731245,
-          "LAnklePitch": -0.29,
-          # "LAnklePitch": -0.307420,
-          "LAnkleRoll": 0.0}
-
+base_pose = np.array([0.0, 0.0, 0.0, 0., 0.0, 0.0, 1.0])
 base_twist = np.zeros(6)
 robot = None
+
+q_init = {'floating_base_joint': 0.,
+          'left_hip_pitch_joint': -0.25,
+          'left_hip_roll_joint': 0.,
+          'left_hip_yaw_joint': 0.,
+          'left_knee_joint': 0.36,
+          'left_ankle_pitch_joint': -0.15,
+          'left_ankle_roll_joint': 0.,
+          'right_hip_pitch_joint': -0.25,
+          'right_hip_roll_joint': 0.,
+          'right_hip_yaw_joint': 0.,
+          'right_knee_joint': 0.36,
+          'right_ankle_pitch_joint': -0.15,
+          'right_ankle_roll_joint': 0.,
+          'waist_yaw_joint': 0.,
+          'waist_roll_joint': 0.,
+          'waist_pitch_joint': 0.,
+          'left_shoulder_pitch_joint': 0.,
+          'left_shoulder_roll_joint': 0.,
+          'left_shoulder_yaw_joint': 0.,
+          'left_elbow_joint': 0.,
+          'left_wrist_roll_joint': 0.,
+          'left_wrist_pitch_joint': 0.,
+          'left_wrist_yaw_joint': 0.,
+          'right_shoulder_pitch_joint': 0.,
+          'right_shoulder_roll_joint': 0.,
+          'right_shoulder_yaw_joint': 0.,
+          'right_elbow_joint': 0.,
+          'right_wrist_roll_joint': 0.,
+          'right_wrist_pitch_joint': 0.,
+          'right_wrist_yaw_joint': 0.}
+
+
+l_foot_link_name = 'l_sole'
+r_foot_link_name = 'r_sole'
+base_link_name = 'pelvis'
 
 '''
 Initialize Horizon problem
@@ -204,15 +234,16 @@ ns = 30
 T = 1.5
 dt = T / ns
 
-# logger = matlogger.MatLogger2('/tmp/mpc_logger')
-
 prb = Problem(ns, receding=True, casadi_type=cs.SX)
-dt_param = prb.createParameter('dt', 1)
-dt_param.assign(dt)
-prb.setDt(dt_param)
+prb.setDt(dt)
 
-# fixed_joint_map = {'WaistYaw': 0.0}
 kin_dyn = casadi_kin_dyn.CasadiKinDyn(urdf) #, fixed_joints=fixed_joint_map)
+
+# setting base of the robot
+FK = kin_dyn.fk('l_sole')
+init = base_pose.tolist() + list(q_init.values())
+init_pos_foot = FK(q=kin_dyn.mapToQ(q_init))['ee_pos']
+base_pose[2] = -init_pos_foot[2]
 
 model = FullModelInverseDynamics(problem=prb,
                                  kd=kin_dyn,
@@ -220,31 +251,33 @@ model = FullModelInverseDynamics(problem=prb,
                                  base_init=base_pose)
                                  # fixed_joint_map=fixed_joint_map)
 
-qmin = np.array(model.kd.q_min())
-qmax = np.array(model.kd.q_max())
-prb.createResidual("q_limit_lower", 100 * utils.barrier(model.q - qmin))
-prb.createResidual("q_limit_upper", 100 * utils.barrier1(model.q - qmax))
-
 # rospy.set_param('/robot_description', urdf)
 bashCommand = 'rosrun robot_state_publisher robot_state_publisher'
 process = subprocess.Popen(bashCommand.split(), start_new_session=True)
 
 ti = TaskInterface(prb=prb, model=model)
-ti.setTaskFromYaml(rospkg.RosPack().get_path('cogimon_controller') + '/config/cogimon_config.yaml')
 
+ti.setTaskFromYaml(rospkg.RosPack().get_path('cogimon_controller') + '/config/g1_config.yaml')
+
+
+qmin = np.array(model.kd.q_min())
+qmax = np.array(model.kd.q_max())
+prb.createResidual("q_limit_lower", 100 * utils.barrier(model.q - qmin))
+prb.createResidual("q_limit_upper", 100 * utils.barrier1(model.q - qmax))
+
+'''
+adding minimization of angular momentum
+'''
 cd_fun = ti.model.kd.computeCentroidalDynamics()
-
-# adding minimization of angular momentum
 h_lin, h_ang, dh_lin, dh_ang = cd_fun(model.q, model.v, model.a)
-# prb.createIntermediateResidual('min_angular_mom', 1e-1 * dh_ang)
-
+prb.createIntermediateResidual('min_angular_mom', 1e-1 * dh_ang)
 
 '''
 Foot vertices relative distance constraint
 '''
-pos_lf = model.kd.fk('l_sole')(q=model.q)['ee_pos']
-pos_rf = model.kd.fk('r_sole')(q=model.q)['ee_pos']
-base_ori = model.kd.fk('base_link')(q=model.q)['ee_rot']
+pos_lf = model.kd.fk(l_foot_link_name)(q=model.q)['ee_pos']
+pos_rf = model.kd.fk(r_foot_link_name)(q=model.q)['ee_pos']
+base_ori = model.kd.fk(base_link_name)(q=model.q)['ee_rot']
 rel_dist = base_ori.T @ (pos_lf - pos_rf)
 
 # prb.createResidual('relative_distance_lower_x', utils.barrier(rel_dist[0] + 0.3))
@@ -263,35 +296,44 @@ tg = trajectoryGenerator.TrajectoryGenerator()
 pm = pymanager.PhaseManager(ns + 1)
 # phase manager handling
 c_timelines = dict()
-for c in model.cmap:
-    c_timelines[c] = pm.createTimeline(f'{c}_timeline')
 
-for c in model.cmap:
+
+contact_task_dict = {'l_sole': 'foot_contact_l',
+                     'r_sole': 'foot_contact_r'}
+
+z_task_dict = {'l_sole': 'foot_z_l',
+               'r_sole': 'foot_z_r'}
+
+# MAP -> contact name : timeline
+contact_phase_map = dict()
+for c in model.getContactMap():
+    c_timelines[c] = pm.createTimeline(f'{contact_task_dict[c]}_timeline')
+
+    contact_phase_map[c] = f'{contact_task_dict[c]}_timeline'
+
+stance_duration = 10
+short_stance_duration = 10
+flight_duration = 10
+
+for c in model.getContactMap():
     # stance phase
-    # stance_duration = 15
-    stance_duration = 10
-    stance_phase = c_timelines[c].createPhase(stance_duration, f'stance_{c}')
-    stance_phase.addItem(ti.getTask(f'foot_contact_{c}'))
+    stance_phase = c_timelines[c].createPhase(stance_duration, f'stance_{contact_task_dict[c]}')
+    stance_phase.addItem(ti.getTask(contact_task_dict[c]))
 
-    time_double_stance = 0.4
-    # short_stance_duration = 7
-    short_stance_duration = 2
-    short_stance_phase = c_timelines[c].createPhase(short_stance_duration, f'short_stance_{c}')
-    short_stance_phase.addItem(ti.getTask(f'foot_contact_{c}'))
+    short_stance_phase = c_timelines[c].createPhase(short_stance_duration, f'short_stance_{contact_task_dict[c]}')
+    short_stance_phase.addItem(ti.getTask(contact_task_dict[c]))
 
-    # flight_duration = 15
-    flight_duration = 10
-    flight_phase = c_timelines[c].createPhase(flight_duration, f'flight_{c}')
+    flight_phase = c_timelines[c].createPhase(flight_duration, f'flight_{contact_task_dict[c]}')
     init_z_foot = model.kd.fk(c)(q=model.q0)['ee_pos'].elements()[2]
     ref_trj = np.zeros(shape=[7, flight_duration])
     ref_trj[2, :] = np.atleast_2d(tg.from_derivatives(flight_duration, init_z_foot, init_z_foot, 0.05, [None, 0, None]))
-    flight_phase.addItemReference(ti.getTask(f'foot_z_{c}'), ref_trj)
+    flight_phase.addItemReference(ti.getTask(z_task_dict[c]), ref_trj)
     # flight_phase.addItem(ti.getTask(f'zero_vel_xy_{c}'))
 
 for c in model.cmap:
-    stance = c_timelines[c].getRegisteredPhase(f'stance_{c}')
-    flight = c_timelines[c].getRegisteredPhase(f'flight_{c}')
-    short_stance = c_timelines[c].getRegisteredPhase(f'short_stance_{c}')
+    stance = c_timelines[c].getRegisteredPhase(f'stance_{contact_task_dict[c]}')
+    flight = c_timelines[c].getRegisteredPhase(f'flight_{contact_task_dict[c]}')
+    short_stance = c_timelines[c].getRegisteredPhase(f'short_stance_{contact_task_dict[c]}')
     while c_timelines[c].getEmptyNodes() > 0:
         c_timelines[c].addPhase(stance)
 
@@ -300,62 +342,45 @@ model.v.setBounds(model.v0, model.v0, nodes=0)
 model.v.setBounds(model.v0, model.v0, nodes=ns)
 model.q.setInitialGuess(ti.model.q0)
 
-# prb.createFinalConstraint('cazzi', model.v)
 f0 = [0, 0, kin_dyn.mass() / 8 * 9.8]
 for cname, cforces in ti.model.cmap.items():
     for c in cforces:
         c.setInitialGuess(f0)
 
-# for contact, force in model.getForceMap().items():
-#     force_z_ref[contact].assign(f0[2])
-
-'''
-Straigh legs
-'''
-
-com_vel = model.kd.centerOfMass()(q=model.q, v=model.v, a=model.a)['vcom']
-sum_f = 0
-for cname, cforce in model.getForceMap().items():
-    rot = model.kd.fk(cname)(q=model.q)['ee_rot']
-    w_force = cs.mtimes(rot, cforce)
-    sum_f += w_force
-    # sum_f += cforce
-
-W_com = cs.mtimes(sum_f.T, com_vel)
-prb.createIntermediateResidual('min_com_power', W_com)
-
-J_l = model.kd.jacobian('l_sole', model.kd_frame)(q=model.q)['J']
-J_r = model.kd.jacobian('r_sole', model.kd_frame)(q=model.q)['J']
-
-prb.createResidual('singularity_left', 1000 * utils.barrier(cs.sqrt(cs.det(cs.mtimes(J_l, J_l.T))) - 0.1))
-prb.createResidual('singularity_right', 1000 * utils.barrier(cs.sqrt(cs.det(cs.mtimes(J_r, J_r.T))) - 0.1))
-
 # finalize taskInterface and solve bootstrap problem
 ti.finalize()
-ti.bootstrap()
 
+
+pm.update()
+rs = pyrosserver.RosServerClass(pm)
+
+ti.bootstrap()
+ti.load_initial_guess()
 solution = ti.solution
 
-iteration = 0
 rate = rospy.Rate(1 / dt)
 
 contact_list_repl = list(model.cmap.keys())
-
 repl = replay_trajectory.replay_trajectory(dt, model.kd.joint_names(), np.array([]),
                                            {k: None for k in model.fmap.keys()},
-                                           model.kd_frame, model.kd, trajectory_markers=contact_list_repl)
-                                           # fixed_joint_map=fixed_joint_map)
+                                           model.kd_frame, model.kd,
+                                           trajectory_markers=contact_list_repl)
 
+xig = np.empty([prb.getState().getVars().shape[0], 1])
+time_elapsed_shifting_list = list()
+time_elapsed_solving_list = list()
+time_elapsed_all_list = list()
 
-def step(swing, stance):
-    c_timelines[swing].addPhase(c_timelines[swing].getRegisteredPhase(f'flight_{swing}'))
-    c_timelines[stance].addPhase(c_timelines[stance].getRegisteredPhase(f'stance_{stance}'))
-    c_timelines[stance].addPhase(c_timelines[stance].getRegisteredPhase(f'short_stance_{stance}'))
-    c_timelines[swing].addPhase(c_timelines[swing].getRegisteredPhase(f'short_stance_{swing}'))
+gm = GaitManager(ti, pm, contact_phase_map)
 
+if joystick_flag:
+    from joy_commands import JoyCommands
+    jc = JoyCommands()
 
-global joy_msg
-import time
+gait_manager_ros = GaitManagerROS(gm)
+
+robot_joint_names = [elem for elem in kin_dyn.joint_names() if elem not in ['universe', 'reference']]
+
 
 while not rospy.is_shutdown():
     tic = time.time()
@@ -370,79 +395,22 @@ while not rospy.is_shutdown():
     prb.getState().setInitialGuess(xig)
     prb.setInitialState(x0=xig[:, 0])
 
-    if False: #robot is not None:
-        robot.sense()
-        q = robot.getJointPositionMap()
-        for fixed_joint in fixed_joint_map.keys():
-            del q[fixed_joint]
-        # q = np.hstack([base_pose, q])
-        model.q[7:].setBounds(list(q.values()), list(q.values()), nodes=0)
-        qdot = robot.getJointVelocityMap()
-        for fixed_joint in fixed_joint_map.keys():
-            del qdot[fixed_joint]
-        # qdot = np.hstack([base_twist, qdot])
-        model.v[6:].setBounds(list(qdot.values()), list(qdot.values()), nodes=0)
-
-
+    # closed loop
     pm.shift()
 
-    # add a new phase when the timeline starts to be empty
-    for c in model.cmap:
-        if c_timelines[c].getEmptyNodes() > 0:
-            if joy_msg.buttons[4] == 1:
-                if c_timelines['l_sole'].getEmptyNodes() > 0:
-                    step('l_sole', 'r_sole')
-                    step('r_sole', 'l_sole')
-            else:
-                c_timelines[c].addPhase(c_timelines[c].getRegisteredPhase(f'stance_{c}'))
+    # publishes to ros phase manager info
+    rs.run()
 
-    if np.abs(joy_msg.axes[1]) > 0.1 or np.abs(joy_msg.axes[0]) > 0.1:
-        final_base_xy = ti.getTask('final_base_xy')
-        vec = np.array([joy_msg.axes[1], joy_msg.axes[0], 0])
-        rot_vec = rotate_vector(vec, solution['q'][[6, 3, 4, 5], 0])
-        print(rot_vec)
-        reference = np.atleast_2d(np.array([solution['q'][0, 0] + 1.5 * rot_vec[0], solution['q'][1, 0] + 1.5 * rot_vec[1], 0., 0., 0., 0., 0.]))
-        final_base_xy.setRef(reference.T)
+    if joystick_flag:
+        # receive msgs from joystick and publishes to ROS topic
+        jc.run()
 
-    else:
-        final_base_xy = ti.getTask('final_base_xy')
-        reference = np.atleast_2d(np.array([solution['q'][0, 0], solution['q'][1, 0], 0., 0., 0., 0., 0.]))
-        final_base_xy.setRef(reference.T)
+    # receive msgs from ros topic and send commands to robot
+    gait_manager_ros.run()
+    pm.update()
 
-    if np.abs(joy_msg.axes[3]) > 0.1:
-        base_orientation_task = ti.getTask('base_yaw_orientation')
-        base_reference_yaw = np.array([[0., 0., 0., 0, 0, 0, 0]]).T
-        d_angle = np.pi / 2 * 0.25 * joy_msg.axes[3]
-        axis = [0, 0, 1]
-        angular_velocity_vector = incremental_rotate(solution['q'][[6, 3, 4, 5], 0], d_angle, axis)
-        base_reference_yaw[3] = angular_velocity_vector.x
-        base_reference_yaw[4] = angular_velocity_vector.y
-        base_reference_yaw[5] = angular_velocity_vector.z
-        base_reference_yaw[6] = angular_velocity_vector.w
-        base_orientation_task.setRef(base_reference_yaw)
-    else:
-        base_orientation_task = ti.getTask('base_yaw_orientation')
-        base_reference_yaw = np.atleast_2d(np.array([0., 0., 0., solution['q'][3, 0], solution['q'][4, 0], solution['q'][5, 0], solution['q'][6, 0]]))
-        base_orientation_task.setRef(base_reference_yaw.T)
-
-    if joy_msg.buttons[3] == 1:
-        com_height = ti.getTask('com_height')
-        reference = np.atleast_2d(np.array([0., 0., solution['q'][2, 0] + 0.025, 0., 0., 0., 0.]))
-        com_height.setRef(reference.T)
-    elif joy_msg.buttons[2] == 1:
-        com_height = ti.getTask('com_height')
-        reference = np.atleast_2d(np.array([0., 0., solution['q'][2, 0] - 0.05, 0., 0., 0., 0.]))
-        com_height.setRef(reference.T)
-
-    # solve real time iteration
     ti.rti()
-    # toc = time.time()
-    # sol_time = toc - tic
-    # print(f'{colorama.Fore.RED}sol_time: {sol_time}{colorama.Fore.RESET}')
-
-    # get new solution and overwrite old one
     solution = ti.solution
-
     # for force_name in model.getForceMap():
     #     logger.add(force_name, solution[f'f_{force_name}'][:, 0])
 
