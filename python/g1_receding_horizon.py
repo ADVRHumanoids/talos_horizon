@@ -291,13 +291,26 @@ rel_dist = base_ori.T @ (pos_lf - pos_rf)
 # prb.createResidual('relative_distance_lower_x', utils.barrier(rel_dist[0] + 0.3))
 # prb.createResidual('relative_distance_upper_x', utils.barrier1(rel_dist[0] - 0.4))
 prb.createResidual('relative_distance_lower_y', 100. * utils.barrier(rel_dist[1] - 0.15))
-# prb.createResidual('relative_distance_upper_y', 10. * utils.barrier1(rel_dist[1] - 0.35))
+# prb.createResidual('relative_distance_upper_y', 10. * utils.barrier1(rel_dist[1] - 0.35))kl.
 
 # force_z_ref = dict()
 # for contact, force in model.getForceMap().items():
 #     print(f'{contact}: {force}')
 #     force_z_ref[contact] = prb.createParameter(f'{contact}_force_z_ref', 1)
 #     prb.createIntermediateResidual(f'{contact}_force_z_reg', 0.001 * (force[2] - force_z_ref[contact]))
+
+# com_vel = model.kd.centerOfMass()(q=model.q, v=model.v, a=model.a)['vcom']
+# sum_f = 0
+# for cname, cforce in model.getForceMap().items():
+#     rot = model.kd.fk(cname)(q=model.q)['ee_rot']
+#     w_force = cs.mtimes(rot.T, cforce[:3])
+#     sum_f += w_force
+#     # sum_f += cforce[:3]
+#
+# W_com = cs.mtimes(sum_f.T, com_vel)
+# W_com = sum_f.T @ com_vel
+# prb.createIntermediateResidual('min_com_power', 0.5 * W_com)
+
 
 tg = trajectoryGenerator.TrajectoryGenerator()
 

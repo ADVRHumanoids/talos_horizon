@@ -21,9 +21,11 @@ constraints:
 costs:
   - base_xy
   - base_z
-  - joint_posture_legs
+  - joint_posture
+  - joint_posture_hips
 #  - joint_posture_upper_body
-  - base_orientation
+  - base_roll_orientation
+  - base_pitch_orientation
   - base_yaw_orientation
   - foot_rot_l
   - foot_rot_r
@@ -44,16 +46,19 @@ costs:
 #  - joint_regularization #, foot_z_l_sole, foot_z_r_sole] # com_height
 
 .define:
-    - &w_base_z 1.
-    - &w_base_ori 50.
+    - &w_base_z 0.
+    - &w_base_ori_r 10.
+    - &w_base_ori_p 10.
+    - &w_base_ori_y 100.
     - &w_base_xy 50.
     - &w_contact_z 1000.
     - &w_postural 1.
+    - &w_postural_hips 100.
     - &w_postural_ub 1.
-    - &w_v 1
-    - &w_a 1e-2
-    - &w_f 0.006 #1e-3
-    - &w_sole_rot 1000.
+    - &w_v 2.
+    - &w_a 1e-3
+    - &w_f 2e-2
+    - &w_sole_rot 10.
     - &w_ball_xy 10.
     - &w_postural_roll 1.
 
@@ -71,19 +76,26 @@ base_z:
   nodes: all
   weight: *w_base_z
 
-base_orientation:
+base_roll_orientation:
   type: Cartesian
   distal_link: torso_link
   indices: [3, 4]
   nodes: all
-  weight: *w_base_ori
+  weight: *w_base_ori_r
+
+base_pitch_orientation:
+  type: Cartesian
+  distal_link: torso_link
+  indices: [3, 4]
+  nodes: all
+  weight: *w_base_ori_p
 
 base_yaw_orientation:
   type: Cartesian
   distal_link: torso_link
   indices: [5]
   nodes: all
-  weight: *w_base_ori
+  weight: *w_base_ori_y
 
 foot_rot_l:
   type: Cartesian
@@ -149,10 +161,21 @@ foot_contact_r:
 
 # ==================================
 
-joint_posture_legs:
+joint_posture:
   type: Postural
   weight: *w_postural
 #  indices: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+  indices: ['left_hip_pitch_joint', 'left_hip_yaw_joint', 'left_knee_joint', 'left_ankle_pitch_joint', 'left_ankle_roll_joint',
+            'right_hip_pitch_joint', 'right_hip_roll_joint', 'right_hip_yaw_joint', 'right_knee_joint', 'right_ankle_pitch_joint', 'right_ankle_roll_joint',
+            'waist_yaw_joint', 'waist_roll_joint', 'waist_pitch_joint',
+            'left_shoulder_pitch_joint', 'left_shoulder_roll_joint', 'left_shoulder_yaw_joint', 'left_elbow_joint', 'left_wrist_roll_joint', 'left_wrist_pitch_joint', 'left_wrist_yaw_joint',
+            'right_shoulder_pitch_joint', 'right_shoulder_roll_joint', 'right_shoulder_yaw_joint', 'right_elbow_joint', 'right_wrist_roll_joint', 'right_wrist_pitch_joint', 'right_wrist_yaw_joint']
+  nodes: all
+
+joint_posture_hips:
+  type: Postural
+  weight: *w_postural_hips
+  indices: ['left_hip_roll_joint', 'right_hip_roll_joint']
   nodes: all
 
 #joint_posture_upper_body:
