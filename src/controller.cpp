@@ -4,6 +4,7 @@
 #include <thread>
 #include <xbot_msgs/JointState.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <XBotInterface/ConfigOptions.h>
 
 #include <eigen_conversions/eigen_msg.h>
 
@@ -61,7 +62,7 @@ void Controller::init_load_config()
         {
             ColoredTextPrinter::print("Setting ctrl mode: \n", ColoredTextPrinter::TextColor::Green);
             for (std::pair<std::string, int> pair : _config["control_mode"].as<std::map<std::string, int>>())
-            {
+            {std::string urdf, srdf, jidmap;
                 ColoredTextPrinter::print(pair.first + ": " + std::to_string(pair.second) + "\n", ColoredTextPrinter::TextColor::Green);
                 _ctrl_map[pair.first] = XBot::ControlMode::FromBitset(pair.second);
             }
@@ -96,8 +97,45 @@ void Controller::init_load_config()
 void Controller::init_load_model()
 {
     // Create instance of ModelInferace and RobotInterface
-    auto cfg = XBot::ConfigOptionsFromParamServer();
-    _model = XBot::ModelInterface::getModel(cfg);
+    XBot::ConfigOptions opt;
+    std::string urdf, srdf, jidmap;
+    if(_nh.hasParam("robot_description") && _nh.getParam("robot_description", urdf))
+    {
+        opt.set_urdf(urdf);
+    }
+    else
+    {
+        throw std::runtime_error("robot_description parameter not set");
+    }
+
+    if(_nh.hasParam("robot_description_semantic") && _nh.getParam("robot_description_semantic", srdf))
+    {
+        opt.set_srdf(srdf);
+    }
+    else
+    {
+        throw std::runtime_error("robot_description_semantic parameter not set");
+    }
+
+    if(_nh.hasParam("robot_description_joint_id_map") && _nh.getParam("robot_description_joint_id_map", jidmap))
+    {
+        opt.set_jidmap(jidmap);
+    }
+    else
+    {
+        //success = false;
+        if(!opt.generate_jidmap())
+            throw std::runtime_error("robot_description_joint_id_map parameter not set, failed to auto-generate jid_map");
+    }
+
+    std::string model_type;
+    bool is_model_floating_base;
+
+    opt.set_parameter("model_type", _nhpr.param<std::string>("model_type", "RBDL"));
+    opt.set_parameter("is_model_floating_base", _nhpr.param<bool>("is_model_floating_base", true));
+    opt.set_parameter<std::string>("framework", "Unitree");
+
+    _model = XBot::ModelInterface::getModel(opt);
     Eigen::VectorXd qhome;
     _model->getRobotState("home", qhome);
     _model->setJointPosition(qhome);
@@ -105,7 +143,7 @@ void Controller::init_load_model()
 
     try
     {
-        _robot = XBot::RobotInterface::getRobot(cfg);
+        _robot = XBot::RobotInterface::getRobot(opt);
 
         _robot->sense();
 

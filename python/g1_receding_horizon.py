@@ -130,8 +130,12 @@ rospy.Subscriber('/joy', Joy, joy_callback)
 '''
 Load urdf and srdf
 '''
-urdf_file = '/home/fruscelli/forest_ws/ros_src/g1_description/urdf/g1_29dof.urdf'
-urdf_aug = URDFAugment(urdf_file)
+g1_description_folder = rospkg.RosPack().get_path('g1_description')
+urdf_path = g1_description_folder + "/g1_29dof.urdf"
+srdf_path = g1_description_folder + "/g1_29dof.srdf"
+
+srdf = open(srdf_path, 'r').read()
+urdf_aug = URDFAugment(urdf_path)
 
 sole_xy = [0.2, 0.1]
 urdf_aug.addReferenceFrame('l_sole', 'left_ankle_roll_link', origin_xyz=[0, 0, -0.03])
@@ -154,71 +158,71 @@ rospy.set_param('/robot_description', urdf)
 '''
 Build ModelInterface and RobotStatePublisher
 '''
-# cfg = co.ConfigOptions()
-# cfg.set_urdf(urdf)
-# cfg.set_srdf(srdf)
-# cfg.generate_jidmap()
-# cfg.set_string_parameter('model_type', 'RBDL')
-# cfg.set_string_parameter('framework', 'ROS')
-# cfg.set_bool_parameter('is_model_floating_base', True)
+cfg = co.ConfigOptions()
+cfg.set_urdf(urdf)
+cfg.set_srdf(srdf)
+cfg.generate_jidmap()
+cfg.set_string_parameter('model_type', 'RBDL')
+cfg.set_string_parameter('framework', 'Unitree')
+cfg.set_bool_parameter('is_model_floating_base', True)
 #
 base_pose = None
 base_twist = None
-# try:
-#     robot = xbot.RobotInterface(cfg)
-#     # rospy.Subscriber('/cogimon_base_estimation/base_link/pose', PoseStamped, gt_pose_callback)
-#     # rospy.Subscriber('/cogimon_base_estimation/base_link/twist', TwistStamped, gt_twist_callback)
-#     rospy.Subscriber('/xbotcore/link_state/base_link/pose', PoseStamped, gt_pose_callback)
-#     rospy.Subscriber('/xbotcore/link_state/base_link/twist', TwistStamped, gt_twist_callback)
-#
-#     while base_pose is None or base_twist is None:
-#         print('trying')
-#         rospy.sleep(0.01)
-#
-#     base_pose = np.array([0.03, 0., 0.962, 0., -0.029995, 0.0, 0.99955])
-#     base_twist = np.zeros(6)
-#
-#     robot.sense()
-#     q_init = robot.getPositionReference()
-#     q_init = robot.eigenToMap(q_init)
-#     print(colorama.Fore.CYAN + 'RobotInterface created!' + colorama.Fore.RESET)
-#
-# except:
-print(colorama.Fore.CYAN + 'RobotInterface not created' + colorama.Fore.RESET)
-base_pose = np.array([0.0, 0.0, 0.0, 0., 0.0, 0.0, 1.0])
-base_twist = np.zeros(6)
-robot = None
+try:
+    robot = xbot.RobotInterface(cfg)
+    # rospy.Subscriber('/cogimon_base_estimation/base_link/pose', PoseStamped, gt_pose_callback)
+    # rospy.Subscriber('/cogimon_base_estimation/base_link/twist', TwistStamped, gt_twist_callback)
+    # rospy.Subscriber('/xbotcore/link_state/base_link/pose', PoseStamped, gt_pose_callback)
+    # rospy.Subscriber('/xbotcore/link_state/base_link/twist', TwistStamped, gt_twist_callback)
 
-q_init = {'floating_base_joint': 0.,
-          'left_hip_pitch_joint': -0.25,
-          'left_hip_roll_joint': 0.,
-          'left_hip_yaw_joint': 0.,
-          'left_knee_joint': 0.36,
-          'left_ankle_pitch_joint': -0.15,
-          'left_ankle_roll_joint': 0.,
-          'right_hip_pitch_joint': -0.25,
-          'right_hip_roll_joint': 0.,
-          'right_hip_yaw_joint': 0.,
-          'right_knee_joint': 0.36,
-          'right_ankle_pitch_joint': -0.15,
-          'right_ankle_roll_joint': 0.,
-          'waist_yaw_joint': 0.,
-          'waist_roll_joint': 0.,
-          'waist_pitch_joint': 0.,
-          'left_shoulder_pitch_joint': 0.,
-          'left_shoulder_roll_joint': 0.,
-          'left_shoulder_yaw_joint': 0.,
-          'left_elbow_joint': 0.,
-          'left_wrist_roll_joint': 0.,
-          'left_wrist_pitch_joint': 0.,
-          'left_wrist_yaw_joint': 0.,
-          'right_shoulder_pitch_joint': 0.,
-          'right_shoulder_roll_joint': 0.,
-          'right_shoulder_yaw_joint': 0.,
-          'right_elbow_joint': 0.,
-          'right_wrist_roll_joint': 0.,
-          'right_wrist_pitch_joint': 0.,
-          'right_wrist_yaw_joint': 0.}
+    # while base_pose is None or base_twist is None:
+    #     print('trying')
+    #     rospy.sleep(0.01)
+
+    base_pose = np.array([0.0, 0.0, 0.0, 0., 0.0, 0.0, 1.0])
+    base_twist = np.zeros(6)
+
+    robot.sense()
+    q_init = robot.getRobotState('home')
+    q_init = robot.eigenToMap(q_init)
+    print(colorama.Fore.CYAN + 'RobotInterface created!' + colorama.Fore.RESET)
+
+except:
+    print(colorama.Fore.CYAN + 'RobotInterface not created' + colorama.Fore.RESET)
+    base_pose = np.array([0.0, 0.0, 0.0, 0., 0.0, 0.0, 1.0])
+    base_twist = np.zeros(6)
+    robot = None
+
+    q_init = {'floating_base_joint': 0.,
+              'left_hip_pitch_joint': -0.25,
+              'left_hip_roll_joint': 0.,
+              'left_hip_yaw_joint': 0.,
+              'left_knee_joint': 0.36,
+              'left_ankle_pitch_joint': -0.15,
+              'left_ankle_roll_joint': 0.,
+              'right_hip_pitch_joint': -0.25,
+              'right_hip_roll_joint': 0.,
+              'right_hip_yaw_joint': 0.,
+              'right_knee_joint': 0.36,
+              'right_ankle_pitch_joint': -0.15,
+              'right_ankle_roll_joint': 0.,
+              'waist_yaw_joint': 0.,
+              'waist_roll_joint': 0.,
+              'waist_pitch_joint': 0.,
+              'left_shoulder_pitch_joint': 0.,
+              'left_shoulder_roll_joint': 0.,
+              'left_shoulder_yaw_joint': 0.,
+              'left_elbow_joint': 0.,
+              'left_wrist_roll_joint': 0.,
+              'left_wrist_pitch_joint': 0.,
+              'left_wrist_yaw_joint': 0.,
+              'right_shoulder_pitch_joint': 0.,
+              'right_shoulder_roll_joint': 0.,
+              'right_shoulder_yaw_joint': 0.,
+              'right_elbow_joint': 0.,
+              'right_wrist_roll_joint': 0.,
+              'right_wrist_pitch_joint': 0.,
+              'right_wrist_yaw_joint': 0.}
 
 
 l_foot_link_name = 'l_sole'
@@ -250,6 +254,10 @@ model = FullModelInverseDynamics(problem=prb,
                                  q_init=q_init,
                                  base_init=base_pose)
                                  # fixed_joint_map=fixed_joint_map)
+
+print(len(model.joint_names))
+print(model.joint_names)
+# exit()
 
 # rospy.set_param('/robot_description', urdf)
 bashCommand = 'rosrun robot_state_publisher robot_state_publisher'
@@ -379,7 +387,7 @@ if joystick_flag:
 
 gait_manager_ros = GaitManagerROS(gm)
 
-robot_joint_names = [elem for elem in kin_dyn.joint_names() if elem not in ['universe', 'reference']]
+robot_joint_names = [elem for elem in kin_dyn.joint_names() if elem not in ['universe', 'floating_base_joint']]
 
 
 while not rospy.is_shutdown():
@@ -418,17 +426,11 @@ while not rospy.is_shutdown():
     sol_msg.header.frame_id = 'world'
     sol_msg.header.stamp = rospy.Time.now()
 
-    sol_msg.joint_names = [elem for elem in kin_dyn.joint_names() if elem not in ['universe', 'reference']]
-
-    # solution['q'][12, 0] *= -1
-    # solution['q'][18, 0] *= -1
+    sol_msg.joint_names = [elem for elem in kin_dyn.joint_names() if elem not in ['universe', 'floating_base_joint']]
 
     sol_msg.q = solution['q'][:, 0].tolist()
     sol_msg.v = solution['v'][:, 0].tolist()
     sol_msg.a = solution['a'][:, 0].tolist()
-
-    # solution['q'][12, 0] *= -1
-    # solution['q'][18, 0] *= -1
 
     for frame in model.getForceMap():
         sol_msg.force_names.append(frame)
