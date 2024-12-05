@@ -63,6 +63,8 @@ void XBot::RobotInterfaceUnitree::low_state_handler(const void *message)
     {
         ms_tmp.q.at(i) = low_state.motor_state()[i].q();
         ms_tmp.dq.at(i) = low_state.motor_state()[i].dq();
+        ms_tmp.tau_est.at(i) = low_state.motor_state()[i].tau_est();
+
         if (low_state.motor_state()[i].motorstate() && i <= RightAnkleRoll)
             std::cout << "[ERROR] motor " << i << " with code " << low_state.motor_state()[i].motorstate() << "\n";
     }
@@ -87,12 +89,20 @@ bool XBot::RobotInterfaceUnitree::sense_internal(bool sync_ref)
     for (int i = 0; i < G1_NUM_MOTOR; i++)
     {
         _pos(i) = ms_tmp->q.at(i);
-        _stiff(i) = Kp.at(i);
-        _damp(i) = Kd.at(i);
+        _vel(i) = ms_tmp->dq.at(i);
+        _tau(i) = ms_tmp->tau_est.at(i);
+        setJointPosition(_pos);
+        setJointVelocity(_vel);
+        setJointEffort(_tau);
     }
 
     if(sync_ref)
     {
+        for (int i = 0; i < G1_NUM_MOTOR; i++)
+        {
+            _stiff(i) = Kp.at(i);
+            _damp(i) = Kd.at(i);
+        }
         setPositionReference(_pos);
         setStiffness(_stiff);
         setDamping(_damp);

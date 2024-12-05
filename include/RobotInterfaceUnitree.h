@@ -45,6 +45,7 @@ struct MotorCommand {
 struct MotorState {
     std::array<double, G1_NUM_MOTOR> q = {};
     std::array<double, G1_NUM_MOTOR> dq = {};
+    std::array<double, G1_NUM_MOTOR> tau_est = {};
 };
 
 enum class Mode {
