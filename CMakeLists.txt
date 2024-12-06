@@ -46,11 +46,28 @@ catkin_package(
 
 add_executable(controller
     src/controller_node.cpp
-    src/controller.cpp)
+    src/controller.cpp
+    src/JointStatePublisher.cpp)
 
 target_link_libraries(controller
     mpc_handler
+    unitree_sdk2
     ${catkin_LIBRARIES})
+
+add_executable(joint_state_publisher
+    src/joint_state_publisher_node.cpp
+    src/JointStatePublisher.cpp)
+
+target_link_libraries(joint_state_publisher
+    unitree_sdk2
+    ${XBotInterface_LIBRARIES}
+    ${catkin_LIBRARIES})
+
+install(TARGETS joint_state_publisher
+ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
 
 add_library(RobotInterfaceUnitree
     src/RobotInterfaceUnitree.cpp)

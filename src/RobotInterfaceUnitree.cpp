@@ -65,9 +65,6 @@ void XBot::RobotInterfaceUnitree::low_state_handler(const void *message)
         ms_tmp.q.at(i) = low_state.motor_state()[i].q();
         ms_tmp.dq.at(i) = low_state.motor_state()[i].dq();
         ms_tmp.tau_est.at(i) = low_state.motor_state()[i].tau_est();
-
-        if (low_state.motor_state()[i].motorstate() && i <= RightAnkleRoll)
-            std::cout << "[ERROR] motor " << i << " with code " << low_state.motor_state()[i].motorstate() << "\n";
     }
     _motor_state_buffer.SetData(ms_tmp);
 
