@@ -155,56 +155,47 @@ rospy.set_param('/robot_description', urdf)
 
 # file_dir = os.getcwd()
 
-'''
-Build ModelInterface and RobotStatePublisher
-'''
-cfg = co.ConfigOptions()
-cfg.set_urdf(urdf)
-cfg.set_srdf(srdf)
-cfg.generate_jidmap()
-cfg.set_string_parameter('model_type', 'RBDL')
-cfg.set_string_parameter('framework', 'Unitree')
-cfg.set_bool_parameter('is_model_floating_base', True)
+
 #
 base_pose = None
 base_twist = None
-try:
-    robot = xbot.RobotInterface(cfg)
-    # rospy.Subscriber('/cogimon_base_estimation/base_link/pose', PoseStamped, gt_pose_callback)
-    # rospy.Subscriber('/cogimon_base_estimation/base_link/twist', TwistStamped, gt_twist_callback)
-    # rospy.Subscriber('/xbotcore/link_state/base_link/pose', PoseStamped, gt_pose_callback)
-    # rospy.Subscriber('/xbotcore/link_state/base_link/twist', TwistStamped, gt_twist_callback)
 
-    # while base_pose is None or base_twist is None:
-    #     print('trying')
-    #     rospy.sleep(0.01)
+if True:
+    cfg = co.ConfigOptions()
+    cfg.set_urdf(urdf)
+    cfg.set_srdf(srdf)
+    cfg.generate_jidmap()
+    cfg.set_string_parameter('model_type', 'RBDL')
+    cfg.set_string_parameter('framework', 'Unitree')
+    cfg.set_bool_parameter('is_model_floating_base', True)
+    robot = xbot.RobotInterface(cfg)
 
     base_pose = np.array([0.0, 0.0, 0.0, 0., 0.0, 0.0, 1.0])
     base_twist = np.zeros(6)
 
     robot.sense()
-    q_init = robot.getRobotState('home')
+    q_init = robot.getPositionReference()
     q_init = robot.eigenToMap(q_init)
     print(colorama.Fore.CYAN + 'RobotInterface created!' + colorama.Fore.RESET)
 
-except:
+else:
     print(colorama.Fore.CYAN + 'RobotInterface not created' + colorama.Fore.RESET)
     base_pose = np.array([0.0, 0.0, 0.0, 0., 0.0, 0.0, 1.0])
     base_twist = np.zeros(6)
     robot = None
 
     q_init = {'floating_base_joint': 0.,
-              'left_hip_pitch_joint': -0.25,
+              'left_hip_pitch_joint': -0.15,
               'left_hip_roll_joint': 0.,
               'left_hip_yaw_joint': 0.,
-              'left_knee_joint': 0.36,
-              'left_ankle_pitch_joint': -0.15,
+              'left_knee_joint': 0.45,
+              'left_ankle_pitch_joint': -0.3,
               'left_ankle_roll_joint': 0.,
-              'right_hip_pitch_joint': -0.25,
+              'right_hip_pitch_joint': -0.15,
               'right_hip_roll_joint': 0.,
               'right_hip_yaw_joint': 0.,
-              'right_knee_joint': 0.36,
-              'right_ankle_pitch_joint': -0.15,
+              'right_knee_joint': 0.45,
+              'right_ankle_pitch_joint': -0.3,
               'right_ankle_roll_joint': 0.,
               'waist_yaw_joint': 0.,
               'waist_roll_joint': 0.,
@@ -212,14 +203,14 @@ except:
               'left_shoulder_pitch_joint': 0.,
               'left_shoulder_roll_joint': 0.,
               'left_shoulder_yaw_joint': 0.,
-              'left_elbow_joint': 0.,
+              'left_elbow_joint': 0.9,
               'left_wrist_roll_joint': 0.,
               'left_wrist_pitch_joint': 0.,
               'left_wrist_yaw_joint': 0.,
               'right_shoulder_pitch_joint': 0.,
               'right_shoulder_roll_joint': 0.,
               'right_shoulder_yaw_joint': 0.,
-              'right_elbow_joint': 0.,
+              'right_elbow_joint': 0.9,
               'right_wrist_roll_joint': 0.,
               'right_wrist_pitch_joint': 0.,
               'right_wrist_yaw_joint': 0.}
@@ -416,7 +407,6 @@ while not rospy.is_shutdown():
     prb.getState().setInitialGuess(xig)
     prb.setInitialState(x0=xig[:, 0])
 
-    # closed loop
     pm.shift()
 
     # publishes to ros phase manager info

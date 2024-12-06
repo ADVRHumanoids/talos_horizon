@@ -3,6 +3,8 @@
 from xbot_interface import config_options as co
 from xbot_interface import xbot_interface as xbot
 
+import time
+
 import rospkg
 
 '''
@@ -29,9 +31,14 @@ cfg.set_bool_parameter('is_model_floating_base', True)
 robot = xbot.RobotInterface(cfg)
 
 qhome = robot.getRobotState('home')
+qinit = robot.getPositionReference()
 
+alpha = 0.01
+q = qinit
 while True:
-    robot.setPositionReference(qhome)
+    q = alpha * qhome + (1 - alpha) * q
+    robot.setPositionReference(q)
     robot.move()
+    time.sleep(0.01)
 
 exit()
