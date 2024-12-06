@@ -1,6 +1,6 @@
 <launch>
-    <param name="robot_description" textfile="$(find g1_description)/g1_29dof.urdf"/>
-    <param name="robot_description_semantic" textfile="$(find g1_description)/g1_29dof.srdf"/>
+    <param name="robot_description" textfile="$(find cogimon_controller)/urdf/g1_29dof.urdf"/>
+    <param name="robot_description_semantic" textfile="$(find cogimon_controller)/srdf/g1_29dof.srdf"/>
 
     <node pkg="cogimon_controller" type="controller" name="g1_controller_node" output="screen">
         <param name="config" textfile="$(find cogimon_controller)/config/g1_controller_config.yaml"/>

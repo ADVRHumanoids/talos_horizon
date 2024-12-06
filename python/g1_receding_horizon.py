@@ -130,9 +130,9 @@ rospy.Subscriber('/joy', Joy, joy_callback)
 '''
 Load urdf and srdf
 '''
-g1_description_folder = rospkg.RosPack().get_path('g1_description')
-urdf_path = g1_description_folder + "/g1_29dof.urdf"
-srdf_path = g1_description_folder + "/g1_29dof.srdf"
+g1_description_folder = rospkg.RosPack().get_path('cogimon_controller')
+urdf_path = g1_description_folder + "/urdf/g1_29dof.urdf"
+srdf_path = g1_description_folder + "/srdf/g1_29dof.srdf"
 
 srdf = open(srdf_path, 'r').read()
 urdf_aug = URDFAugment(urdf_path)
