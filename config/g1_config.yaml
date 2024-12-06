@@ -56,7 +56,6 @@ costs:
     - &w_postural 1.
     - &w_postural_hips 100.
     - &w_postural_knee 0.1
-    -
     - &w_postural_ub 1.
     - &w_v 2.
     - &w_a 1e-3
