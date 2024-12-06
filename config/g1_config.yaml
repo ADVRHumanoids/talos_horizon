@@ -59,7 +59,7 @@ costs:
     - &w_postural_ub 1.
     - &w_v 2.
     - &w_a 1e-3
-    - &w_f 2e-2
+    - &w_f 6e-3 #2e-2
     - &w_sole_rot 100.
 
 base_xy:
@@ -120,7 +120,7 @@ foot_interaction_l:
   frame: l_sole
   fn_min: 10.0
   friction_coeff: 0.5
-  enable_fc: true
+  enable_fc: false
   vertex_frames:
     - l_sole_lower_left_link
     - l_sole_upper_left_link
@@ -138,7 +138,7 @@ foot_interaction_r:
   frame: r_sole
   fn_min: 10.0
   friction_coeff: 0.5
-  enable_fc: true
+  enable_fc: false
   vertex_frames:
     - r_sole_lower_left_link
     - r_sole_upper_left_link
