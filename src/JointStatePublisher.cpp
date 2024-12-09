@@ -83,6 +83,7 @@ void JointStatePublisher::publish()
     xbot_msg.link_position.assign(_q.data(), _q.data() + _q.size());
     xbot_msg.position_reference.assign(_q_ref.data(), _q_ref.data() + _q_ref.size());
     xbot_msg.link_velocity.assign(_qdot.data(), _qdot.data() + _qdot.size());
+    xbot_msg.velocity_reference.assign(_qdot_ref.data(), _qdot_ref.data() + _qdot_ref.size());
     xbot_msg.stiffness.assign(_stiff.data(), _stiff.data() + _stiff.size());
     xbot_msg.damping.assign(_damp.data(), _damp.data() + _damp.size());
     xbot_msg.effort.assign(_tau_ff.data(), _tau_ff.data() + _tau_ff.size());

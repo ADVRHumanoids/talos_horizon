@@ -93,6 +93,8 @@ void XBot::RobotInterfaceUnitree::low_command_handler(const void *message)
         _pos_ref(i) = low_cmd.motor_cmd().at(i).q();
         _vel_ref(i) = low_cmd.motor_cmd().at(i).dq();
         _tau_ref(i) = low_cmd.motor_cmd().at(i).tau();
+        _stiff(i) = low_cmd.motor_cmd().at(i).kp();
+        _damp(i) = low_cmd.motor_cmd().at(i).kd();
     }
     _cmd_sent = true;
 }
@@ -122,6 +124,8 @@ bool XBot::RobotInterfaceUnitree::sense_internal(bool sync_ref)
         setPositionReference(_pos_ref);
         setVelocityReference(_vel_ref);
         setEffortReference(_tau_ref);
+        setStiffness(_stiff);
+        setDamping(_damp);
     }
 
 

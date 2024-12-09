@@ -54,7 +54,7 @@ closed_loop = rospy.get_param(param_name='~closed_loop', default=False)
 '''
 xbot
 '''
-xbot_param = rospy.get_param(param_name="~xbot", default=False)
+xbot_param = rospy.get_param(param_name="~xbot", default=True)
 
 def gt_pose_callback(msg):
     global base_pose
@@ -160,7 +160,7 @@ rospy.set_param('/robot_description', urdf)
 base_pose = None
 base_twist = None
 
-if True:
+if xbot_param:
     cfg = co.ConfigOptions()
     cfg.set_urdf(urdf)
     cfg.set_srdf(srdf)
@@ -176,6 +176,37 @@ if True:
     robot.sense()
     q_init = robot.getPositionReference()
     q_init = robot.eigenToMap(q_init)
+
+    q_init = {'left_hip_pitch_joint': -0.15,
+              'left_hip_roll_joint': 0.,
+              'left_hip_yaw_joint': 0.,
+              'left_knee_joint': 0.45,
+              'left_ankle_pitch_joint': -0.3,
+              'left_ankle_roll_joint': 0.,
+              'right_hip_pitch_joint': -0.15,
+              'right_hip_roll_joint': 0.,
+              'right_hip_yaw_joint': 0.,
+              'right_knee_joint': 0.45,
+              'right_ankle_pitch_joint': -0.3,
+              'right_ankle_roll_joint': 0.,
+              'waist_yaw_joint': 0.,
+              'waist_roll_joint': 0.,
+              'waist_pitch_joint': 0.,
+              'left_shoulder_pitch_joint': 0.,
+              'left_shoulder_roll_joint': 0.,
+              'left_shoulder_yaw_joint': 0.,
+              'left_elbow_joint': 0.9,
+              'left_wrist_roll_joint': 0.,
+              'left_wrist_pitch_joint': 0.,
+              'left_wrist_yaw_joint': 0.,
+              'right_shoulder_pitch_joint': 0.,
+              'right_shoulder_roll_joint': 0.,
+              'right_shoulder_yaw_joint': 0.,
+              'right_elbow_joint': 0.9,
+              'right_wrist_roll_joint': 0.,
+              'right_wrist_pitch_joint': 0.,
+              'right_wrist_yaw_joint': 0.}
+    
     print(colorama.Fore.CYAN + 'RobotInterface created!' + colorama.Fore.RESET)
 
 else:
@@ -246,9 +277,6 @@ model = FullModelInverseDynamics(problem=prb,
                                  base_init=base_pose)
                                  # fixed_joint_map=fixed_joint_map)
 
-print(len(model.joint_names))
-print(model.joint_names)
-# exit()
 
 # rospy.set_param('/robot_description', urdf)
 bashCommand = 'rosrun robot_state_publisher robot_state_publisher'

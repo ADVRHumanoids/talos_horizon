@@ -4,63 +4,65 @@ n_nodes: 30
 define:
     - &low_stiff 200.
     - &low_damp 10.
-    - &high_stiff 2500.
-    - &high_damp 30.
+    - &high_stiff 800.
+    - &high_damp 10.
 
-#stiffness:
-#    'LWrj1': *high_stiff
-#    'RWrj1': *high_stiff
-#    'RShYaw': *high_stiff
-#    'RShSag': *high_stiff
-#    'LForearmPlate': *high_stiff
-#    'LShSag': *high_stiff
-#    'WaistYaw': *high_stiff
-#    'RElbj': *high_stiff
-#    'LHipLat': *high_stiff
-#    'LShLat': *high_stiff
-#    'LHipSag': *high_stiff
-#    'RKneePitch': *high_stiff
-#    'LShYaw': *high_stiff
-#    'LHipYaw': *high_stiff
-#    'RHipLat': *high_stiff
-#    'LKneePitch': *high_stiff
-#    'LAnklePitch': *high_stiff
-#    'RHipSag': *high_stiff
-#    'LAnkleRoll': *high_stiff
-#    'RHipYaw': *high_stiff
-#    'RShLat': *high_stiff
-#    'RAnklePitch': *high_stiff
-#    'RForearmPlate': *high_stiff
-#    'RAnkleRoll': *high_stiff
-#    'LElbj': *high_stiff
-#    'WaistLat': *high_stiff
+stiffness:
+    left_hip_pitch_joint: *high_stiff
+    left_hip_roll_joint: *high_stiff
+    left_hip_yaw_joint: *high_stiff
+    left_knee_joint: *high_stiff
+    left_ankle_pitch_joint: 500
+    left_ankle_roll_joint: 500
+    right_hip_pitch_joint: *high_stiff
+    right_hip_roll_joint: *high_stiff
+    right_hip_yaw_joint: *high_stiff
+    right_knee_joint: *high_stiff
+    right_ankle_pitch_joint: 500
+    right_ankle_roll_joint: 500
+    waist_yaw_joint: *low_stiff
+    waist_roll_joint: *low_stiff
+    waist_pitch_joint: *low_stiff
+    left_shoulder_pitch_joint: *low_stiff
+    left_shoulder_roll_joint: *low_stiff
+    left_shoulder_yaw_joint: *low_stiff
+    left_elbow_joint: *low_stiff
+    left_wrist_roll_joint: *low_stiff
+    left_wrist_pitch_joint: *low_stiff
+    left_wrist_yaw_joint: *low_stiff
+    right_shoulder_pitch_joint: *low_stiff
+    right_shoulder_roll_joint: *low_stiff
+    right_shoulder_yaw_joint: *low_stiff
+    right_elbow_joint: *low_stiff
+    right_wrist_roll_joint: *low_stiff
 #
 #
-#damping:
-#  'LWrj1': *high_damp
-#  'RWrj1': *high_damp
-#  'RShYaw': *high_damp
-#  'RShSag': *high_damp
-#  'LForearmPlate': *high_damp
-#  'LShSag': *high_damp
-#  'WaistYaw': *high_damp
-#  'RElbj': *high_damp
-#  'LHipLat': *high_damp
-#  'LShLat': *high_damp
-#  'LHipSag': *high_damp
-#  'RKneePitch': *high_damp
-#  'LShYaw': *high_damp
-#  'LHipYaw': *high_damp
-#  'RHipLat': *high_damp
-#  'LKneePitch': *high_damp
-#  'LAnklePitch': *high_damp
-#  'RHipSag': *high_damp
-#  'LAnkleRoll': *high_damp
-#  'RHipYaw': *high_damp
-#  'RShLat': *high_damp
-#  'RAnklePitch': *high_damp
-#  'RForearmPlate': *high_damp
-#  'RAnkleRoll': *high_damp
-#  'LElbj': *high_damp
-#  'WaistLat': *high_damp
+damping:
+    left_hip_pitch_joint: *high_damp
+    left_hip_roll_joint: *high_damp
+    left_hip_yaw_joint: *high_damp
+    left_knee_joint: *high_damp
+    left_ankle_pitch_joint: *high_damp
+    left_ankle_roll_joint: *high_damp
+    right_hip_pitch_joint: *high_damp
+    right_hip_roll_joint: *high_damp
+    right_hip_yaw_joint: *high_damp
+    right_knee_joint: *high_damp
+    right_ankle_pitch_joint: *high_damp
+    right_ankle_roll_joint: *high_damp
+    waist_yaw_joint: *high_damp
+    waist_roll_joint: *high_damp
+    waist_pitch_joint: *high_damp
+    left_shoulder_pitch_joint: *high_damp
+    left_shoulder_roll_joint: *high_damp
+    left_shoulder_yaw_joint: *high_damp
+    left_elbow_joint: *high_damp
+    left_wrist_roll_joint: *high_damp
+    left_wrist_pitch_joint: *high_damp
+    left_wrist_yaw_joint: *high_damp
+    right_shoulder_pitch_joint: *high_damp
+    right_shoulder_roll_joint: *high_damp
+    right_shoulder_yaw_joint: *high_damp
+    right_elbow_joint: *high_damp
+    right_wrist_roll_joint: *high_damp
 
