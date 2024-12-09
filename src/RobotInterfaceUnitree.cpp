@@ -10,10 +10,15 @@ REGISTER_SO_LIB_(XBot::RobotInterfaceUnitree, XBot::RobotInterface);
 XBot::RobotInterfaceUnitree::RobotInterfaceUnitree()
 {
     _pos.resize(G1_NUM_MOTOR);
+    _pos_ref.resize(G1_NUM_MOTOR);
     _vel.resize(G1_NUM_MOTOR);
+    _vel_ref.resize(G1_NUM_MOTOR);
     _stiff.resize(G1_NUM_MOTOR);
     _damp.resize(G1_NUM_MOTOR);
     _tau.resize(G1_NUM_MOTOR);
+    _tau_ref.resize(G1_NUM_MOTOR);
+
+    _cmd_sent = false;
 }
 
 bool XBot::RobotInterfaceUnitree::post_init()
@@ -42,6 +47,8 @@ bool XBot::RobotInterfaceUnitree::init_robot(const ConfigOptions &cfg)
     // create subscriber
     _lowstate_subscriber.reset(new ChannelSubscriber<LowState_>(HG_STATE_TOPIC));
     _lowstate_subscriber->InitChannel(std::bind(&RobotInterfaceUnitree::low_state_handler, this, std::placeholders::_1), 1);
+    _lowcmd_subscriber.reset(new ChannelSubscriber<LowCmd_>(HG_CMD_TOPIC));
+    _lowcmd_subscriber->InitChannel(std::bind(&RobotInterfaceUnitree::low_command_handler, this, std::placeholders::_1), 1);
 
     // create threads
     command_writer_ptr_ = CreateRecurrentThreadEx("command_writer", UT_CPU_ID_NONE, 2000, &RobotInterfaceUnitree::low_command_writer, this);
@@ -75,6 +82,21 @@ void XBot::RobotInterfaceUnitree::low_state_handler(const void *message)
     _imu_state_buffer.SetData(imu_tmp);
 }
 
+void XBot::RobotInterfaceUnitree::low_command_handler(const void *message)
+{
+    LowCmd_ low_cmd = *(const LowCmd_ *)message;
+
+    // get motor state
+
+    for (int i = 0; i < G1_NUM_MOTOR; ++i)
+    {
+        _pos_ref(i) = low_cmd.motor_cmd().at(i).q();
+        _vel_ref(i) = low_cmd.motor_cmd().at(i).dq();
+        _tau_ref(i) = low_cmd.motor_cmd().at(i).tau();
+    }
+    _cmd_sent = true;
+}
+
 bool XBot::RobotInterfaceUnitree::sense_internal(bool sync_ref)
 {
     std::shared_ptr<const MotorState> ms_tmp = _motor_state_buffer.GetData();
@@ -89,10 +111,19 @@ bool XBot::RobotInterfaceUnitree::sense_internal(bool sync_ref)
         _pos(i) = ms_tmp->q.at(i);
         _vel(i) = ms_tmp->dq.at(i);
         _tau(i) = ms_tmp->tau_est.at(i);
+
         setJointPosition(_pos);
         setJointVelocity(_vel);
         setJointEffort(_tau);
     }
+
+    if (_cmd_sent)
+    {
+        setPositionReference(_pos_ref);
+        setVelocityReference(_vel_ref);
+        setEffortReference(_tau_ref);
+    }
+
 
     if(sync_ref)
     {
@@ -128,7 +159,7 @@ void XBot::RobotInterfaceUnitree::low_command_writer()
             dds_low_command.motor_cmd().at(i).kd() = mc->kd.at(i);
         }
 
-    _lowcmd_publisher->Write(dds_low_command);
+        _lowcmd_publisher->Write(dds_low_command);
     }
 }
 

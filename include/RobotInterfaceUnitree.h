@@ -157,6 +157,7 @@ protected:
 
 private:
     void low_state_handler(const void* message);
+    void low_command_handler(const void* message);
     void low_command_writer();
 
     double _time;
@@ -172,14 +173,17 @@ private:
 
     ChannelPublisherPtr<LowCmd_> _lowcmd_publisher;
     ChannelSubscriberPtr<LowState_> _lowstate_subscriber;
+    ChannelSubscriberPtr<LowCmd_> _lowcmd_subscriber;
 
     ThreadPtr command_writer_ptr_;
 
-    Eigen::VectorXd _pos;
-    Eigen::VectorXd _vel;
-    Eigen::VectorXd _tau;
+    Eigen::VectorXd _pos, _pos_ref;
+    Eigen::VectorXd _vel, _vel_ref;
+    Eigen::VectorXd _tau, _tau_ref;
     Eigen::VectorXd _stiff;
     Eigen::VectorXd _damp;
+
+    bool _cmd_sent;
 };
 }
 
