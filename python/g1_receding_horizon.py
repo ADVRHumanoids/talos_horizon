@@ -54,7 +54,7 @@ closed_loop = rospy.get_param(param_name='~closed_loop', default=False)
 '''
 xbot
 '''
-xbot_param = rospy.get_param(param_name="~xbot", default=True)
+xbot_param = rospy.get_param(param_name="~xbot", default=False)
 
 def gt_pose_callback(msg):
     global base_pose
@@ -137,7 +137,7 @@ srdf_path = g1_description_folder + "/srdf/g1_29dof.srdf"
 srdf = open(srdf_path, 'r').read()
 urdf_aug = URDFAugment(urdf_path)
 
-sole_xy = [0.2, 0.1]
+sole_xy = [0.15, 0.05]
 urdf_aug.addReferenceFrame('l_sole', 'left_ankle_roll_link', origin_xyz=[0, 0, -0.03])
 urdf_aug.addReferenceFrame('r_sole', 'right_ankle_roll_link', origin_xyz=[0, 0, -0.03])
 urdf_aug.addRectangleReferenceFrame('l_sole', size=sole_xy, offset_x=0.03)
@@ -352,7 +352,7 @@ for c in model.getContactMap():
     contact_phase_map[c] = f'{contact_task_dict[c]}_timeline'
 
 stance_duration = 10
-short_stance_duration = 10
+short_stance_duration = 4
 flight_duration = 10
 
 for c in model.getContactMap():

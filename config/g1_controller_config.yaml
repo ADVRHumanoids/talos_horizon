@@ -18,8 +18,8 @@ stiffness:
     right_hip_roll_joint: *high_stiff
     right_hip_yaw_joint: *high_stiff
     right_knee_joint: *high_stiff
-    right_ankle_pitch_joint: 500
-    right_ankle_roll_joint: 500
+    right_ankle_pitch_joint: 600
+    right_ankle_roll_joint: 600
     waist_yaw_joint: *low_stiff
     waist_roll_joint: *low_stiff
     waist_pitch_joint: *low_stiff
