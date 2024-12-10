@@ -173,15 +173,15 @@ bool XBot::RobotInterfaceUnitree::move_internal()
 
     getPositionReference(_pos);
     getVelocityReference(_vel);
-    getEffortReference(_tau);
+    getEffortReference(_tau_ref);
     getStiffness(_stiff);
-    getDamping(_tau);
+    getDamping(_damp);
 
     for (int i = 0; i < G1_NUM_MOTOR; i++)
     {
         motor_command_tmp.q_target.at(i) = _pos(i);
         motor_command_tmp.dq_target.at(i) = _vel(i);
-        motor_command_tmp.tau_ff.at(i) = _tau(i);
+        motor_command_tmp.tau_ff.at(i) = _tau_ref(i);
         motor_command_tmp.kp.at(i) = _stiff(i);
         motor_command_tmp.kd.at(i) = _damp(i);
     }

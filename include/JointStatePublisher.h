@@ -31,6 +31,7 @@ private:
     Eigen::VectorXd _stiff;
     Eigen::VectorXd _damp;
     Eigen::VectorXd _tau_ff;
+    Eigen::VectorXd _tau;
 
     std::vector<std::string> _joint_names;
 
