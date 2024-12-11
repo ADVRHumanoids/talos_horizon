@@ -1,16 +1,24 @@
 <launch>
+
+    <arg name="xbot" default="false"/>
+    <arg name="closed_loop" default="false"/>
+    <arg name="joy" default="true"/>
+
     <param name="robot_description" textfile="$(find cogimon_controller)/urdf/g1_29dof.urdf"/>
     <param name="robot_description_semantic" textfile="$(find cogimon_controller)/srdf/g1_29dof.srdf"/>
 
     <node pkg="cogimon_controller" type="controller" name="g1_controller_node" output="screen">
         <param name="config" textfile="$(find cogimon_controller)/config/g1_controller_config.yaml"/>
         <param name="rate" value="1000"/>
-        <param name="xbot" value="true"/>
     </node>
 
     <node pkg="joy" type="joy_node" name="joy_node">
         <param name="autorepeat_rate" value="20"/>
     </node>
 
-     <node pkg="cogimon_controller" type="g1_receding_horizon.py" name="mpc_node" output="screen"/>
+     <node pkg="cogimon_controller" type="g1_receding_horizon.py" name="mpc_node" output="screen">
+        <param name="xbot" value="$(arg xbot)"/>
+        <param name="closed_loop" value="$(arg closed_loop)"/>
+        <param name="joy" value="$(arg joy)"/>
+     </node>
 </launch>

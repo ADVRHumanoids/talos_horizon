@@ -30,7 +30,7 @@ private:
     Eigen::VectorXd _qdot_ref;
     Eigen::VectorXd _stiff;
     Eigen::VectorXd _damp;
-    Eigen::VectorXd _tau_ff;
+    Eigen::VectorXd _tau_ref;
     Eigen::VectorXd _tau;
 
     std::vector<std::string> _joint_names;

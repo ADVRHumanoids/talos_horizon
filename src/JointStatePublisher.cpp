@@ -16,7 +16,7 @@ _nhpr("~")
     _qdot_ref.resize(_robot->getJointNum());
     _stiff.resize(_robot->getJointNum());
     _damp.resize(_robot->getJointNum());
-    _tau_ff.resize(_robot->getJointNum());
+    _tau_ref.resize(_robot->getJointNum());
     _tau.resize(_robot->getJointNum());
 
     _joint_names = _robot->getEnabledJointNames();
@@ -79,7 +79,7 @@ void JointStatePublisher::publish()
     _robot->getStiffness(_stiff);
     _robot->getDamping(_damp);
     _robot->getJointEffort(_tau);
-    _robot->getEffortReference(_tau_ff);
+    _robot->getEffortReference(_tau_ref);
 
     xbot_msg.name.assign(_joint_names.begin(), _joint_names.begin() + _joint_names.size());
     xbot_msg.link_position.assign(_q.data(), _q.data() + _q.size());
@@ -89,7 +89,7 @@ void JointStatePublisher::publish()
     xbot_msg.stiffness.assign(_stiff.data(), _stiff.data() + _stiff.size());
     xbot_msg.damping.assign(_damp.data(), _damp.data() + _damp.size());
     xbot_msg.effort.assign(_tau.data(), _tau.data() + _tau.size());
-    xbot_msg.effort_reference.assign(_tau_ff.data(), _tau_ff.data() + _tau_ff.size());
+    xbot_msg.effort_reference.assign(_tau_ref.data(), _tau_ref.data() + _tau_ref.size());
 
     _js_pub.publish(xbot_msg);
 }

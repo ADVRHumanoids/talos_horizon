@@ -54,14 +54,14 @@
     	<joint name="left_shoulder_pitch_joint" value="0"/>
     	<joint name="left_shoulder_roll_joint" value="0"/>
     	<joint name="left_shoulder_yaw_joint" value="0"/>
-    	<joint name="left_elbow_joint" value="0.4"/>
+    	<joint name="left_elbow_joint" value="0."/>
     	<joint name="left_wrist_roll_joint" value="0"/>
     	<joint name="left_wrist_pitch_joint" value="0"/>
     	<joint name="left_wrist_yaw_joint" value="0"/>
     	<joint name="right_shoulder_pitch_joint" value="0"/>
     	<joint name="right_shoulder_roll_joint" value="0"/>
     	<joint name="right_shoulder_yaw_joint" value="0"/>
-    	<joint name="right_elbow_joint" value="0.4"/>
+    	<joint name="right_elbow_joint" value="0."/>
     	<joint name="right_wrist_roll_joint" value="0"/>
     	<joint name="right_wrist_pitch_joint" value="0"/>
     	<joint name="right_wrist_yaw_joint" value="0"/>

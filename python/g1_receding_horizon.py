@@ -8,6 +8,7 @@ from horizon.rhc.model_description import FullModelInverseDynamics
 from horizon.rhc.taskInterface import TaskInterface
 from horizon.utils import trajectoryGenerator, analyzer, utils
 from horizon.transcriptions import integrators
+from horizon.rhc.ros.task_server_class import TaskServerClass
 from horizon.ros import replay_trajectory
 from horizon.utils import plotter
 import matplotlib.pyplot as plt
@@ -41,6 +42,9 @@ import colorama
 global base_pose
 global base_twist
 
+
+rospy.init_node('g1_walk')
+
 '''
 joystick interface
 '''
@@ -55,6 +59,7 @@ closed_loop = rospy.get_param(param_name='~closed_loop', default=False)
 xbot
 '''
 xbot_param = rospy.get_param(param_name="~xbot", default=False)
+
 
 def gt_pose_callback(msg):
     global base_pose
@@ -137,7 +142,7 @@ srdf_path = g1_description_folder + "/srdf/g1_29dof.srdf"
 srdf = open(srdf_path, 'r').read()
 urdf_aug = URDFAugment(urdf_path)
 
-sole_xy = [0.15, 0.05]
+sole_xy = [0.14, 0.05]
 urdf_aug.addReferenceFrame('l_sole', 'left_ankle_roll_link', origin_xyz=[0, 0, -0.03])
 urdf_aug.addReferenceFrame('r_sole', 'right_ankle_roll_link', origin_xyz=[0, 0, -0.03])
 urdf_aug.addRectangleReferenceFrame('l_sole', size=sole_xy, offset_x=0.03)
@@ -177,7 +182,8 @@ if xbot_param:
     q_init = robot.getPositionReference()
     q_init = robot.eigenToMap(q_init)
 
-    q_init = {'left_hip_pitch_joint': -0.15,
+    q_init = {'floating_base_joint': 0.,
+              'left_hip_pitch_joint': -0.15,
               'left_hip_roll_joint': 0.,
               'left_hip_yaw_joint': 0.,
               'left_knee_joint': 0.45,
@@ -195,14 +201,14 @@ if xbot_param:
               'left_shoulder_pitch_joint': 0.,
               'left_shoulder_roll_joint': 0.,
               'left_shoulder_yaw_joint': 0.,
-              'left_elbow_joint': 0.9,
+              'left_elbow_joint': 0.6,
               'left_wrist_roll_joint': 0.,
               'left_wrist_pitch_joint': 0.,
               'left_wrist_yaw_joint': 0.,
               'right_shoulder_pitch_joint': 0.,
               'right_shoulder_roll_joint': 0.,
               'right_shoulder_yaw_joint': 0.,
-              'right_elbow_joint': 0.9,
+              'right_elbow_joint': 0.6,
               'right_wrist_roll_joint': 0.,
               'right_wrist_pitch_joint': 0.,
               'right_wrist_yaw_joint': 0.}
@@ -234,14 +240,14 @@ else:
               'left_shoulder_pitch_joint': 0.,
               'left_shoulder_roll_joint': 0.,
               'left_shoulder_yaw_joint': 0.,
-              'left_elbow_joint': 0.9,
+              'left_elbow_joint': 0.6,
               'left_wrist_roll_joint': 0.,
               'left_wrist_pitch_joint': 0.,
               'left_wrist_yaw_joint': 0.,
               'right_shoulder_pitch_joint': 0.,
               'right_shoulder_roll_joint': 0.,
               'right_shoulder_yaw_joint': 0.,
-              'right_elbow_joint': 0.9,
+              'right_elbow_joint': 0.6,
               'right_wrist_roll_joint': 0.,
               'right_wrist_pitch_joint': 0.,
               'right_wrist_yaw_joint': 0.}
@@ -254,8 +260,6 @@ base_link_name = 'pelvis'
 '''
 Initialize Horizon problem
 '''
-# ns = 30
-# T = 1.5
 ns = 30
 T = 1.5
 dt = T / ns
@@ -351,9 +355,9 @@ for c in model.getContactMap():
 
     contact_phase_map[c] = f'{contact_task_dict[c]}_timeline'
 
-stance_duration = 10
+stance_duration = 15
 short_stance_duration = 4
-flight_duration = 10
+flight_duration = 15
 
 for c in model.getContactMap():
     # stance phase
@@ -389,6 +393,8 @@ for cname, cforces in ti.model.cmap.items():
 
 # finalize taskInterface and solve bootstrap problem
 ti.finalize()
+
+tsc = TaskServerClass(ti)
 
 
 pm.update()
@@ -477,6 +483,8 @@ while not rospy.is_shutdown():
         repl.publishContactForces(rospy.Time.now(), solution['q'][:, 0], 0)
 
     # time_elapsed_all = time.time() - tic
+
+    tsc.update()
 
     rate.sleep()
 
