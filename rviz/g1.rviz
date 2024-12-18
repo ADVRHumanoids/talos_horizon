@@ -71,11 +71,7 @@ Visualization Manager:
           Show Axes: false
           Show Trail: false
           Value: true
-        imu_in_pelvis:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        imu_in_torso:
+        imu_link:
           Alpha: 1
           Show Axes: false
           Show Trail: false
@@ -319,10 +315,8 @@ Visualization Manager:
           Value: false
         head_link:
           Value: false
-        imu_in_pelvis:
-          Value: false
-        imu_in_torso:
-          Value: false
+        imu_link:
+          Value: true
         l_sole:
           Value: true
         l_sole_lower_left_link:
@@ -426,8 +420,6 @@ Visualization Manager:
       Tree:
         world:
           pelvis:
-            imu_in_pelvis:
-              {}
             left_hip_pitch_link:
               left_hip_roll_link:
                 left_hip_yaw_link:
@@ -467,7 +459,7 @@ Visualization Manager:
                     {}
                   head_link:
                     {}
-                  imu_in_torso:
+                  imu_link:
                     {}
                   left_shoulder_pitch_link:
                     left_shoulder_roll_link:
@@ -643,7 +635,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 9.68779182434082
+      Distance: 3.9591641426086426
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -659,9 +651,9 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.060398753732442856
+      Pitch: -0.00960124284029007
       Target Frame: <Fixed Frame>
-      Yaw: 0.215396910905838
+      Yaw: 0.20539692044258118
     Saved: ~
 Window Geometry:
   Displays:

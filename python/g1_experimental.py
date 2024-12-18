@@ -19,6 +19,7 @@ import phase_manager.pytimeline as pytimeline
 import phase_manager.pyrosserver as pyrosserver
 
 from horizon.rhc.gait_manager import GaitManager
+from horizon.rhc.gait_manager import PhaseGaitWrapper
 from horizon.rhc.ros.gait_manager_ros import GaitManagerROS
 
 from urdf_augment import URDFAugment
@@ -38,10 +39,8 @@ import subprocess
 import os
 import colorama
 
-
 global base_pose
 global base_twist
-
 
 rospy.init_node('g1_walk')
 
@@ -78,6 +77,7 @@ def joy_callback(msg):
     global joy_msg
     joy_msg = msg
 
+
 def quaternion_multiply(q1, q2):
     w1, x1, y1, z1 = q1
     w2, x2, y2, z2 = q2
@@ -87,10 +87,13 @@ def quaternion_multiply(q1, q2):
     z = w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2
     return np.array([w, x, y, z])
 
+
 def conjugate_quaternion(q):
     q_conjugate = np.copy(q)
     q_conjugate[1:] *= -1.0
     return q_conjugate
+
+
 def rotate_vector(vector, quaternion):
     # normalize the quaternion
     quaternion = quaternion / np.linalg.norm(quaternion)
@@ -100,12 +103,13 @@ def rotate_vector(vector, quaternion):
 
     # rotate the vector p = q* v q
     rotated_v = quaternion_multiply(quaternion,
-                                          quaternion_multiply(v, conjugate_quaternion(quaternion)))
+                                    quaternion_multiply(v, conjugate_quaternion(quaternion)))
 
     # extract the rotated vector
     rotated_vector = rotated_v[1:]
 
     return rotated_vector
+
 
 def incremental_rotate(q_initial: np.quaternion, d_angle, axis) -> np.quaternion:
     # np.quaternion is [w,x,y,z]
@@ -207,7 +211,7 @@ if xbot_param:
               'right_wrist_roll_joint': 0.,
               'right_wrist_pitch_joint': 0.,
               'right_wrist_yaw_joint': 0.}
-    
+
     print(colorama.Fore.CYAN + 'RobotInterface created!' + colorama.Fore.RESET)
 
 else:
@@ -247,7 +251,6 @@ else:
               'right_wrist_pitch_joint': 0.,
               'right_wrist_yaw_joint': 0.}
 
-
 l_foot_link_name = 'l_sole'
 r_foot_link_name = 'r_sole'
 base_link_name = 'pelvis'
@@ -262,7 +265,7 @@ dt = T / ns
 prb = Problem(ns, receding=True, casadi_type=cs.SX)
 prb.setDt(dt)
 
-kin_dyn = casadi_kin_dyn.CasadiKinDyn(urdf) #, fixed_joints=fixed_joint_map)
+kin_dyn = casadi_kin_dyn.CasadiKinDyn(urdf)  # , fixed_joints=fixed_joint_map)
 
 # setting base of the robot
 FK = kin_dyn.fk('l_sole')
@@ -274,7 +277,7 @@ model = FullModelInverseDynamics(problem=prb,
                                  kd=kin_dyn,
                                  q_init=q_init,
                                  base_init=base_pose)
-                                 # fixed_joint_map=fixed_joint_map)
+# fixed_joint_map=fixed_joint_map)
 
 
 # rospy.set_param('/robot_description', urdf)
@@ -284,7 +287,6 @@ process = subprocess.Popen(bashCommand.split(), start_new_session=True)
 ti = TaskInterface(prb=prb, model=model)
 
 ti.setTaskFromYaml(rospkg.RosPack().get_path('cogimon_controller') + '/config/g1_config.yaml')
-
 
 qmin = np.array(model.kd.q_min())
 qmax = np.array(model.kd.q_max())
@@ -311,30 +313,8 @@ rel_dist = base_ori.T @ (pos_lf - pos_rf)
 prb.createResidual('relative_distance_lower_y', 100. * utils.barrier(rel_dist[1] - 0.15))
 # prb.createResidual('relative_distance_upper_y', 10. * utils.barrier1(rel_dist[1] - 0.35))kl.
 
-# force_z_ref = dict()
-# for contact, force in model.getForceMap().items():
-#     print(f'{contact}: {force}')
-#     force_z_ref[contact] = prb.createParameter(f'{contact}_force_z_ref', 1)
-#     prb.createIntermediateResidual(f'{contact}_force_z_reg', 0.001 * (force[2] - force_z_ref[contact]))
 
-# com_vel = model.kd.centerOfMass()(q=model.q, v=model.v, a=model.a)['vcom']
-# sum_f = 0
-# for cname, cforce in model.getForceMap().items():
-#     rot = model.kd.fk(cname)(q=model.q)['ee_rot']
-#     w_force = cs.mtimes(rot.T, cforce[:3])
-#     sum_f += w_force
-#     # sum_f += cforce[:3]
-#
-# W_com = cs.mtimes(sum_f.T, com_vel)
-# W_com = sum_f.T @ com_vel
-# prb.createIntermediateResidual('min_com_power', 0.5 * W_com)
-
-
-tg = trajectoryGenerator.TrajectoryGenerator()
-
-pm = pymanager.PhaseManager(ns + 1)
 # phase manager handling
-c_timelines = dict()
 
 # connects the frame (l_sole) with the task (foot_contact_l)
 contact_task_dict = {'l_sole': 'foot_contact_l',
@@ -343,38 +323,16 @@ contact_task_dict = {'l_sole': 'foot_contact_l',
 z_task_dict = {'l_sole': 'foot_z_l',
                'r_sole': 'foot_z_r'}
 
-# MAP -> contact name : timeline
-contact_phase_map = dict()
-for c in model.getContactMap():
-    c_timelines[c] = pm.createTimeline(f'{contact_task_dict[c]}_timeline')
+pm = pymanager.PhaseManager(ns + 1)
+pgm = PhaseGaitWrapper(ti, pm, model.getContactMap())
 
-    contact_phase_map[c] = f'{contact_task_dict[c]}_timeline'
+z_traj = np.zeros([7, 1])
+z_traj[2] = 0.
+for contact_name, timeline in pgm.getContactTimelines().items():
+    pgm.getStancePhases()[contact_name].addItem(ti.getTask(contact_task_dict[contact_name]))
+    pgm.getFlightPhases()[contact_name].addItemReference(ti.getTask(z_task_dict[contact_name]), z_traj)
 
-stance_duration = 15
-short_stance_duration = 0
-flight_duration = 15
-
-for c in model.getContactMap():
-    # stance phase
-    stance_phase = c_timelines[c].createPhase(stance_duration, f'stance_{contact_task_dict[c]}')
-    stance_phase.addItem(ti.getTask(contact_task_dict[c]))
-
-    short_stance_phase = c_timelines[c].createPhase(short_stance_duration, f'short_stance_{contact_task_dict[c]}')
-    short_stance_phase.addItem(ti.getTask(contact_task_dict[c]))
-
-    flight_phase = c_timelines[c].createPhase(flight_duration, f'flight_{contact_task_dict[c]}')
-    init_z_foot = model.kd.fk(c)(q=model.q0)['ee_pos'].elements()[2]
-    ref_trj = np.zeros(shape=[7, flight_duration])
-    ref_trj[2, :] = np.atleast_2d(tg.from_derivatives(flight_duration, init_z_foot, init_z_foot, 0.05, [None, 0, None]))
-    flight_phase.addItemReference(ti.getTask(z_task_dict[c]), ref_trj)
-    # flight_phase.addItem(ti.getTask(f'zero_vel_xy_{c}'))
-
-for c in model.cmap:
-    stance = c_timelines[c].getRegisteredPhase(f'stance_{contact_task_dict[c]}')
-    flight = c_timelines[c].getRegisteredPhase(f'flight_{contact_task_dict[c]}')
-    short_stance = c_timelines[c].getRegisteredPhase(f'short_stance_{contact_task_dict[c]}')
-    while c_timelines[c].getEmptyNodes() > 0:
-        c_timelines[c].addPhase(stance)
+pgm.initializeTimeline()
 
 model.q.setBounds(model.q0, model.q0, nodes=0)
 model.v.setBounds(model.v0, model.v0, nodes=0)
@@ -391,11 +349,11 @@ ti.finalize()
 
 tsc = TaskServerClass(ti)
 
-
-pm.update()
+# pm.update()
 rs = pyrosserver.RosServerClass(pm)
 
 ti.bootstrap()
+
 ti.load_initial_guess()
 solution = ti.solution
 
@@ -412,16 +370,16 @@ time_elapsed_shifting_list = list()
 time_elapsed_solving_list = list()
 time_elapsed_all_list = list()
 
-gm = GaitManager(ti, pm, contact_phase_map)
+
 
 if joystick_flag:
     from joy_commands import JoyCommands
+
     jc = JoyCommands()
 
-gait_manager_ros = GaitManagerROS(gm)
+gait_manager_ros = GaitManagerROS(pgm)
 
 robot_joint_names = [elem for elem in kin_dyn.joint_names() if elem not in ['universe', 'floating_base_joint']]
-
 
 while not rospy.is_shutdown():
     tic = time.time()
@@ -447,6 +405,7 @@ while not rospy.is_shutdown():
 
     # receive msgs from ros topic and send commands to robot
     gait_manager_ros.run()
+    pm.update()
 
     ti.rti()
     solution = ti.solution
