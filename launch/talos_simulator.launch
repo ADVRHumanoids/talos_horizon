@@ -1,0 +1,14 @@
+<launch>
+    <arg name="xbot2_config" default="$(find talos_cartesio_config)/mujoco/xbot2/talos.yaml"/>
+
+    <param name="robot_description"
+         textfile="$(find talos_cartesio_config)/robots/talos.urdf"/>
+
+    <param name="robot_description_semantic"
+         textfile="$(find talos_cartesio_config)/robots/talos.srdf"/>
+
+    <include file="$(find talos_cartesio_config)/mujoco/launch/talos_world.launch" pass_all_args="true"/>
+
+<!--     <node pkg="cogimon_controller" type="xbot2_core" name="xbot2" output="screen" -->
+<!--         args="--hw sim --simtime --config $(arg xbot2_config)"/> -->
+</launch>

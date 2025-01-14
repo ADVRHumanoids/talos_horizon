@@ -1,0 +1,73 @@
+horizon_duration: 1.5
+n_nodes: 30
+
+define:
+    - &low_stiff 100.
+    - &low_damp 10.
+    - &high_stiff 1000.
+    - &high_damp 20.
+
+stiffness:
+    "leg_left_1_joint": *high_stiff
+    "leg_left_2_joint": *high_stiff
+    "leg_left_3_joint": *high_stiff
+    "leg_left_4_joint": *high_stiff
+    "leg_left_5_joint": *high_stiff
+    "leg_left_6_joint": *high_stiff
+    "leg_right_1_joint": *high_stiff
+    "leg_right_2_joint": *high_stiff
+    "leg_right_3_joint": *high_stiff
+    "leg_right_4_joint": *high_stiff
+    "leg_right_5_joint": *high_stiff
+    "leg_right_6_joint": *high_stiff
+    "torso_1_joint": *high_stiff
+    "torso_2_joint": *high_stiff
+    "arm_left_1_joint": *high_stiff
+    "arm_left_2_joint": *high_stiff
+    "arm_left_3_joint": *high_stiff
+    "arm_left_4_joint": *high_stiff
+    "arm_left_5_joint": *high_stiff
+    "arm_left_6_joint": *high_stiff
+    "arm_left_7_joint": *high_stiff
+    "arm_right_1_joint": *high_stiff
+    "arm_right_2_joint": *high_stiff
+    "arm_right_3_joint": *high_stiff
+    "arm_right_4_joint": *high_stiff
+    "arm_right_5_joint": *high_stiff
+    "arm_right_6_joint": *high_stiff
+    "arm_right_7_joint": *high_stiff
+    "head_1_joint": *high_stiff
+    "head_2_joint": *high_stiff
+#
+damping:
+    "leg_left_1_joint": *high_damp
+    "leg_left_2_joint": *high_damp
+    "leg_left_3_joint": *high_damp
+    "leg_left_4_joint": *high_damp
+    "leg_left_5_joint": *high_damp
+    "leg_left_6_joint": *high_damp
+    "leg_right_1_joint": *high_damp
+    "leg_right_2_joint": *high_damp
+    "leg_right_3_joint": *high_damp
+    "leg_right_4_joint": *high_damp
+    "leg_right_5_joint": *high_damp
+    "leg_right_6_joint": *high_damp
+    "torso_1_joint": *high_damp
+    "torso_2_joint": *high_damp
+    "arm_left_1_joint": *high_damp
+    "arm_left_2_joint": *high_damp
+    "arm_left_3_joint": *high_damp
+    "arm_left_4_joint": *high_damp
+    "arm_left_5_joint": *high_damp
+    "arm_left_6_joint": *high_damp
+    "arm_left_7_joint": *high_damp
+    "arm_right_1_joint": *high_damp
+    "arm_right_2_joint": *high_damp
+    "arm_right_3_joint": *high_damp
+    "arm_right_4_joint": *high_damp
+    "arm_right_5_joint": *high_damp
+    "arm_right_6_joint": *high_damp
+    "arm_right_7_joint": *high_damp
+    "head_1_joint": *high_damp
+    "head_2_joint": *high_damp
+

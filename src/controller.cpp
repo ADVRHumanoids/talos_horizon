@@ -133,7 +133,7 @@ void Controller::init_load_model()
 
     opt.set_parameter("model_type", _nhpr.param<std::string>("model_type", "RBDL"));
     opt.set_parameter("is_model_floating_base", _nhpr.param<bool>("is_model_floating_base", true));
-    opt.set_parameter<std::string>("framework", "Unitree");
+    opt.set_parameter<std::string>("framework", "ROS");
 
     _model = XBot::ModelInterface::getModel(opt);
     Eigen::VectorXd qhome;
