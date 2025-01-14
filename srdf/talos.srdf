@@ -1,0 +1,75 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="talos">
+
+  <group name="base">
+    <link name="base_link" />
+  </group>
+
+  <group name="TORSO">
+    <chain base_link="base_link" tip_link="torso_2_link" />
+  </group>
+
+  <group name="LEE">
+    <chain base_link="torso_2_link" tip_link="arm_left_7_link" />
+  </group>
+
+  <group name="REE">
+    <chain base_link="torso_2_link" tip_link="arm_right_7_link" />
+  </group>
+
+  <group name="HEAD">
+    <chain base_link="torso_2_link" tip_link="head_2_link" />
+  </group>
+
+  <group name="LFOOT">
+    <chain base_link="base_link" tip_link="left_sole_link" />
+  </group>
+
+  <group name="RFOOT">
+    <chain base_link="base_link" tip_link="right_sole_link" />
+  </group>
+
+
+  <group name="chains">
+    <group name="TORSO" />
+    <group name="HEAD" />
+    <group name="LEE" />
+    <group name="REE" />
+    <group name="LFOOT" />
+    <group name="RFOOT" />
+  </group>
+
+  <group_state group="chains" name="home">
+    <joint name="leg_left_1_joint" value=" -7.94464787047849e-13"/>
+    <joint name="leg_left_2_joint" value=" -3.619964318427297e-05"/>
+    <joint name="leg_left_3_joint" value=" -0.6898316711444555"/>
+    <joint name="leg_left_4_joint" value=" 1.3311371331572148"/>
+    <joint name="leg_left_5_joint" value=" -0.6413054620145101"/>
+    <joint name="leg_left_6_joint" value=" 3.619964990352649e-05"/>
+    <joint name="leg_right_1_joint" value=" -7.94464787047849e-13"/>
+    <joint name="leg_right_2_joint" value=" -3.619964318427297e-05"/>
+    <joint name="leg_right_3_joint" value=" -0.6898316711444555"/>
+    <joint name="leg_right_4_joint" value=" 1.3311371331572148"/>
+    <joint name="leg_right_5_joint" value=" -0.6413054620145101"/>
+    <joint name="leg_right_6_joint" value=" 3.619964990352649e-05"/>
+    <joint name="torso_1_joint" value=" 0.0002205888120137109"/>
+    <joint name="torso_2_joint" value=" 0.027120105655840155"/>
+    <joint name="arm_left_1_joint" value=" -0.03397840856227864"/>
+    <joint name="arm_left_2_joint" value=" 0.3086614029301087"/>
+    <joint name="arm_left_3_joint" value=" 0.03272967979826196"/>
+    <joint name="arm_left_4_joint" value=" -1.0322427349026453"/>
+    <joint name="arm_left_5_joint" value=" 0.004009140644162072"/>
+    <joint name="arm_left_6_joint" value=" 0.00358625686761845"/>
+    <joint name="arm_left_7_joint" value=" 0.02561515245675291"/>
+    <joint name="arm_right_1_joint" value=" -0.03397840856227864"/>
+    <joint name="arm_right_2_joint" value=" -0.3086614029301087"/>
+    <joint name="arm_right_3_joint" value=" 0.03272967979826196"/>
+    <joint name="arm_right_4_joint" value=" -1.0322427349026453"/>
+    <joint name="arm_right_5_joint" value=" 0.004009140644162072"/>
+    <joint name="arm_right_6_joint" value=" 0.00358625686761845"/>
+    <joint name="arm_right_7_joint" value=" 0.02561515245675291"/>
+    <joint name="head_1_joint" value=" -0.027120105662825997"/>
+    <joint name="head_2_joint" value=" -0.0002205888117432746"/>
+  </group_state>
+
+</robot>
