@@ -1,13 +1,13 @@
 framework: ROS
 
 horizon_duration: 1.5
-n_nodes: 30
+n_nodes: 31
 
 define:
-    - &low_stiff 100.
-    - &low_damp 10.
-    - &high_stiff 1000.
-    - &high_damp 10.
+    - &low_stiff 500.
+    - &low_damp 60.
+    - &high_stiff 2000.
+    - &high_damp 100.
 
 stiffness:
     "leg_left_1_joint": *high_stiff

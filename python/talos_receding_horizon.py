@@ -42,9 +42,8 @@ import os
 import colorama
 
 global base_pose
-global base_orientation
 global base_twist
-global angular_velocity
+global b_T_imu
 
 def gt_pose_callback(msg):
     global base_pose
@@ -59,11 +58,9 @@ def gt_twist_callback(msg):
                            msg.twist.angular.x, msg.twist.angular.y, msg.twist.angular.z])
 
 def imu_callback(msg:Imu):
-    global base_orientation
-    global angular_velocity
-    base_orientation = np.array([msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w])
+    global base_pose
+    global base_twist
     base_pose = np.array([0., 0., 0., msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w])
-    angular_velocity = np.array([msg.angular_velocity.x, msg.angular_velocity.y, msg.angular_velocity.z])
     base_twist = np.array([0., 0., 0., msg.angular_velocity.x, msg.angular_velocity.y, msg.angular_velocity.z])
 
 
@@ -133,25 +130,39 @@ def set_state_from_robot(robot_joint_names, q_robot, qdot_robot, fixed_joint_map
         if fixed_joint in q_map:
             del q_map[fixed_joint]
 
+    q_eigen = robot.mapToEigen(q_map)
+
     q_index = 0
     for j_name in robot_joint_names:
         q_robot[q_index] = q_map[j_name]
         q_index += 1
 
+    # rotate quaternion in base_link frame (from imu_link frame)
+    w_T_imu = Affine3(rot=base_pose[3:])
+    w_T_b = w_T_imu * b_T_imu.inverse()
+    base_pose[3:] = w_T_b.quaternion
+    base_pose[3:] = base_pose[3:] / np.linalg.norm(base_pose[3:])
+
+    print(f'base_ori: {base_pose[3:]}')
+
     # numerical problem: two quaternions can represent the same rotation
     # if difference between the base orientation in the state x and the sensed one base_pose < 0, change sign
-    state_quat_conjugate = np.copy(x_opt[3:7, 0])
+    state_quat_conjugate = np.copy(base_pose[3:])
     state_quat_conjugate[:3] *= -1.0
 
     # normalize the quaternion
-    state_quat_conjugate = state_quat_conjugate / np.linalg.norm(x_opt[3:7, 0])
+    state_quat_conjugate = state_quat_conjugate / np.linalg.norm(base_pose[3:])
     diff_quat = utils.quaternion_multiply(base_pose[3:], state_quat_conjugate)
 
     if diff_quat[3] < 0:
-        base_pose[3:] = base_pose[3:]
+        base_pose[3:] = -base_pose[3:]
 
     q = np.hstack([base_pose[3:], q_robot])
-    model.q[3:].setBounds(q, q, nodes=0)
+    # model.q[3:].setBounds(q, q, nodes=0)
+    model.q[7:].setBounds(q_robot, q_robot, nodes=0)
+    # model.q[3:7].setBounds(base_pose[3:], base_pose[3:], nodes=0)
+    model.q[7:].setInitialGuess(q_robot)
+
 
     qdot = robot.getJointVelocity()
     qdot_map = robot.eigenToMap(qdot)
@@ -173,12 +184,19 @@ def set_state_from_robot(robot_joint_names, q_robot, qdot_robot, fixed_joint_map
     r_adj[:3, :3] = r_base.T
     r_adj[3:6, 3:6] = r_base.T
 
+    # rotate base_twist in base_link frame (from imu_frame)
+    base_twist[0:3] = b_T_imu.linear @ base_twist[0:3]
+    base_twist[3:] = b_T_imu.linear @ base_twist[3:]
+
     # rotate in the base frame the relative velocity (ee_v_distal - ee_v_base_distal)
     ee_rel = r_adj @ base_twist
     # ee_rel = r_base.T @ angular_velocity
 
     qdot = np.hstack([ee_rel[3:], qdot_robot])
-    model.v[3:].setBounds(qdot, qdot, nodes=0)
+    # model.v[3:].setBounds(qdot, qdot, nodes=0)
+    # model.v[6:].setBounds(qdot_robot, qdot_robot, nodes=0)
+    # model.v[3:6].setBounds(base_twist[3:], base_twist[3:], nodes=0)
+    # model.v[3:6].setInitialGuess(base_twist[3:])
 
 
 rospy.init_node('talos_walk')
@@ -193,6 +211,8 @@ Load ros params
 joystick_flag = rospy.get_param(param_name='~joy', default=True)
 closed_loop = rospy.get_param(param_name='~closed_loop', default=False)
 xbot_param = rospy.get_param(param_name="~xbot", default=False)
+
+# closed_loop = True
 
 if closed_loop:
     xbot_param = True
@@ -223,9 +243,8 @@ rospy.set_param('/robot_description', urdf)
 
 #
 base_pose = None
-base_orientation = None
 base_twist = None
-angular_velocity = None
+b_T_imu = None
 
 if xbot_param:
     cfg = co.ConfigOptions()
@@ -235,16 +254,20 @@ if xbot_param:
     cfg.set_string_parameter('model_type', 'RBDL')
     cfg.set_string_parameter('framework', 'ROS')
     cfg.set_bool_parameter('is_model_floating_base', True)
+    model_xbot = xbot.ModelInterface(cfg)
     robot = xbot.RobotInterface(cfg)
     robot.setControlMode(xbot.ControlMode.Position() + xbot.ControlMode.Velocity() + xbot.ControlMode.Effort())
 
-    base_pose = np.array([0.0, 0.0, 0.0, 0., 0.0, 0.0, 1.0])
-    base_twist = np.zeros(6)
+    b_T_imu = model_xbot.getPose('imu_link', 'base_link')
 
-    rospy.Subscriber("/xbotcore/imu/imu_link", Imu)
-    while base_twist is None and angular_velocity is None:
-        print('Waiting for imu data')
-        rospy.sleep(0.01)
+    # rospy.Subscriber("/xbotcore/imu/imu_link", Imu, imu_callback)
+    # while base_pose is None and base_twist is None:
+    #     print('Waiting for imu data')
+    #     rospy.sleep(0.01)
+
+    base_pose = np.array([0., 0., 0., 0., 0., 0., 1.])
+    base_twist = np.array([0., 0., 0., 0., 0., 0.])
+
 
     robot.sense()
     q_init = robot.getPositionReference()
@@ -289,6 +312,8 @@ else:
               "head_1_joint": -0.027120105662825997,
               "head_2_joint": -0.0002205888117432746}
 
+rospy.sleep(2)
+
 l_foot_link_name = 'leg_left_6_link'
 r_foot_link_name = 'leg_right_6_link'
 base_link_name = 'torso_1_link'
@@ -296,7 +321,7 @@ base_link_name = 'torso_1_link'
 '''
 Initialize Horizon problem
 '''
-ns = 30
+ns = 31
 T = 1.5
 dt = T / ns
 
@@ -321,6 +346,8 @@ model = FullModelInverseDynamics(problem=prb,
 # rospy.set_param('/robot_description', urdf)
 bashCommand = 'rosrun robot_state_publisher robot_state_publisher'
 process = subprocess.Popen(bashCommand.split(), start_new_session=True)
+
+
 
 ti = TaskInterface(prb=prb, model=model)
 
@@ -389,6 +416,7 @@ ti.finalize()
 
 tsc = TaskServerClass(ti)
 
+
 # pm.update()
 rs = pyrosserver.RosServerClass(pm)
 
@@ -416,6 +444,8 @@ if joystick_flag:
     jc = JoyCommands()
 
 gait_manager_ros = GaitManagerROS(pgm)
+gait_manager_ros.setBasePoseWeight(0.5)
+gait_manager_ros.setBaseRotWeight(0.1)
 
 robot_joint_names = [elem for elem in kin_dyn.joint_names() if elem not in ['universe', 'reference']]
 q_robot = np.zeros(len(robot_joint_names))
@@ -449,7 +479,7 @@ tsc.setMinMax('f_right_regularization_0_weight', 0, 0.1)
 tsc.setMinMax('f_right_regularization_1_weight', 0, 0.1)
 tsc.setMinMax('f_right_regularization_2_weight', 0, 0.1)
 tsc.setMinMax('f_right_regularization_3_weight', 0, 0.1)
-tsc.setMinMax('joint_posture_weight', 0, 5)
+tsc.setMinMax('joint_posture_weight', 0, 10)
 
 while not rospy.is_shutdown():
     tic = time.time()

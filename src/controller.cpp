@@ -4,7 +4,6 @@
 #include <thread>
 #include <xbot_msgs/JointState.h>
 #include <geometry_msgs/PoseStamped.h>
-#include <XBotInterface/ConfigOptions.h>
 
 #include <eigen_conversions/eigen_msg.h>
 
@@ -14,7 +13,7 @@ Controller::Controller(ros::NodeHandle nh, int rate):
 _nh(nh),
 _nhpr("~"),
 _time(0),
-_rate(rate), 
+_rate(rate),
 _init(false)
 {
     init_load_config();
@@ -100,7 +99,7 @@ void Controller::init_load_config()
         {
             ColoredTextPrinter::print("Setting ctrl mode: \n", ColoredTextPrinter::TextColor::Green);
             for (std::pair<std::string, int> pair : _config["control_mode"].as<std::map<std::string, int>>())
-            {std::string urdf, srdf, jidmap;
+            {
                 ColoredTextPrinter::print(pair.first + ": " + std::to_string(pair.second) + "\n", ColoredTextPrinter::TextColor::Green);
                 _ctrl_map[pair.first] = XBot::ControlMode::FromBitset(pair.second);
             }
@@ -135,66 +134,16 @@ void Controller::init_load_config()
 void Controller::init_load_model()
 {
     // Create instance of ModelInferace and RobotInterface
-    XBot::ConfigOptions opt;
-    std::string urdf, srdf, jidmap;
-    if(_nh.hasParam("robot_description") && _nh.getParam("robot_description", urdf))
-    {
-        opt.set_urdf(urdf);
-    }
-    else
-    {
-        throw std::runtime_error("robot_description parameter not set");
-    }
-
-    if(_nh.hasParam("robot_description_semantic") && _nh.getParam("robot_description_semantic", srdf))
-    {
-        opt.set_srdf(srdf);
-    }
-    else
-    {
-        throw std::runtime_error("robot_description_semantic parameter not set");
-    }
-
-    if(_nh.hasParam("robot_description_joint_id_map") && _nh.getParam("robot_description_joint_id_map", jidmap))
-    {
-        opt.set_jidmap(jidmap);
-    }
-    else
-    {
-        //success = false;
-        if(!opt.generate_jidmap())
-            throw std::runtime_error("robot_description_joint_id_map parameter not set, failed to auto-generate jid_map");
-    }
-
-    std::string model_type;
-    bool is_model_floating_base;
-
-    opt.set_parameter("model_type", _nhpr.param<std::string>("model_type", "RBDL"));
-    opt.set_parameter("is_model_floating_base", _nhpr.param<bool>("is_model_floating_base", true));
-
-    std::string framework;
-    if (!_config["framework"])
-    {
-            ColoredTextPrinter::print("Missing 'framework', using default (ROS) \n", ColoredTextPrinter::TextColor::Yellow);
-            framework = "ROS";
-    }
-    else
-    {
-        framework  = _config["framework"].as<std::string>();
-    }
-    opt.set_parameter<std::string>("framework", framework);
-
-    _model = XBot::ModelInterface::getModel(opt);
-    Eigen::VectorXd qhome;
-    _model->getRobotState("home", qhome);
-    _model->setJointPosition(qhome);
-    _model->update();
+    auto cfg = XBot::ConfigOptionsFromParamServer();
+    _model = XBot::ModelInterface::getModel(cfg);
 
     try
     {
-        _robot = XBot::RobotInterface::getRobot(opt);
+        _robot = XBot::RobotInterface::getRobot(cfg);
 
         _robot->sense();
+        _robot->getStiffness(_init_stiffness);
+        _robot->getDamping(_init_damping);
 
         // set all joint modes to pos impedance + effort
         set_control_mode_map(XBot::ControlMode::PosImpedance() + XBot::ControlMode::Effort());
@@ -294,7 +243,7 @@ void Controller::set_control_mode_map(XBot::ControlMode cm)
         // overwrite with entries in _ctrl_map (custom from the user)
         for (const auto& pair : _ctrl_map)
         {
-                _init_ctrl_map[pair.first] = pair.second;
+            _init_ctrl_map[pair.first] = pair.second;
         }
     }
 
@@ -368,13 +317,13 @@ void Controller::run()
     if (!_init)
     {
         _init = true;
-//         set_stiffness_damping_torque(0.01);
+        // set_stiffness_damping_torque(0.01);
+
         if (!_stiffness_map.empty() || !_damping_map.empty())
         {
-            set_stiffness_damping(0.1);
+            set_stiffness_damping_torque(0.1);
         }
 
         _robot->setControlMode(_init_ctrl_map);
     }
 }
-

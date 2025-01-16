@@ -16,7 +16,6 @@ solver:
 
 #constraints:
 
-
 costs:
   - foot_contact_l
   - foot_contact_r
@@ -26,8 +25,8 @@ costs:
 #  - joint_posture_hips
 #  - joint_posture_knee
 #  - joint_posture_upper_body
-  - base_roll_orientation
-  - base_pitch_orientation
+  - base_orientation
+#  - base_orientation_2
   - base_yaw_orientation
   - foot_rot_l
   - foot_rot_r
@@ -48,19 +47,18 @@ costs:
 #  - joint_regularization #, foot_z_leg_left_6_link, foot_z_leg_right_6_link] # com_height
 
 .define:
-    - &w_base_z 5.
-    - &w_base_ori_r 10.
-    - &w_base_ori_p 10.
+    - &w_base_z 50.
+    - &w_base_ori 10.
     - &w_base_ori_y 100.
     - &w_base_xy 50.
     - &w_contact_z 1000.
-    - &w_contact 1000.
-    - &w_postural 1.
+    - &w_contact 500.
+    - &w_postural 5.
     - &w_postural_hips 10.
     - &w_postural_knee 0.05
     - &w_postural_ub 1.
-    - &w_v 0.5
-    - &w_a 1e-1
+    - &w_v 0.01
+    - &w_a 4e-1
     - &w_f 6e-3 #2e-2
     - &w_sole_rot 100.
 
@@ -78,19 +76,20 @@ base_z:
   nodes: all
   weight: *w_base_z
 
-base_roll_orientation:
+base_orientation:
   type: Cartesian
-  distal_link: torso_1_link
+  distal_link: base_link
   indices: [3, 4]
   nodes: all
-  weight: *w_base_ori_r
+  weight: *w_base_ori
 
-base_pitch_orientation:
+base_orientation_2:
   type: Cartesian
-  distal_link: torso_1_link
-  indices: [3, 4]
+  distal_link: torso_2_link
+  base_link: torso_1_link
+  indices: [3, 4, 5]
   nodes: all
-  weight: *w_base_ori_p
+  weight: *w_base_ori
 
 base_yaw_orientation:
   type: Cartesian
@@ -156,12 +155,12 @@ foot_zero_velocity_r:
 foot_contact_l:
   type: Contact
   subtask: [foot_interaction_l, foot_zero_velocity_l]
-  weight: 500
+  weight: *w_contact
 
 foot_contact_r:
   type: Contact
   subtask: [foot_interaction_r, foot_zero_velocity_r]
-  weight: 500
+  weight: *w_contact
 
 # ==================================
 
@@ -174,7 +173,7 @@ joint_posture:
 #            'waist_yaw_joint', 'waist_roll_joint', 'waist_pitch_joint',
 #            'left_shoulder_pitch_joint', 'left_shoulder_roll_joint', 'left_shoulder_yaw_joint', 'left_elbow_joint', 'left_wrist_roll_joint', 'left_wrist_pitch_joint', 'left_wrist_yaw_joint',
 #            'right_shoulder_pitch_joint', 'right_shoulder_roll_joint', 'right_shoulder_yaw_joint', 'right_elbow_joint', 'right_wrist_roll_joint', 'right_wrist_pitch_joint', 'right_wrist_yaw_joint']
-  nodes: all
+  nodes: ${range(N-5, N)}
 
 joint_posture_knee:
   type: Postural
