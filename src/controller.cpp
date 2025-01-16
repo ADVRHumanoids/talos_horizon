@@ -25,6 +25,44 @@ _init(false)
     _mpc_handler->setTorqueOffset(_tau_offset);
 }
 
+void Controller::reset()
+{
+    std::cout << "Setting initial stiffness and damping" << std::endl;
+
+    _robot->setControlMode(XBot::ControlMode::Stiffness() + XBot::ControlMode::Damping());
+
+    double duration = 0.1;
+    double T = _time + duration;
+    double dt = 1./_rate;
+
+    XBot::JointNameMap K, D, K_start, D_start;
+    _robot->getStiffness(K_start);
+    _robot->getDamping(D_start);
+    K = K_start;
+    D = D_start;
+
+    while (_time < T)
+    {
+        for (auto stiff : _init_stiffness)
+        {
+            K[stiff.first] = (K_start[stiff.first] + (stiff.second - K_start[stiff.first]) * _time / T);
+        }
+
+        for (auto damp : _init_damping)
+        {
+            D[damp.first] = (D_start[damp.first] + (damp.second - D_start[damp.first]) * _time / T);
+        }
+
+        _robot->setStiffness(K);
+        _robot->setDamping(D);
+        _robot->move();
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(int(dt * 1000)));
+        ros::spinOnce();
+        _time += dt;
+    }
+}
+
 void Controller::init_load_config()
 {
     if(!_nhpr.hasParam("config"))
@@ -133,7 +171,18 @@ void Controller::init_load_model()
 
     opt.set_parameter("model_type", _nhpr.param<std::string>("model_type", "RBDL"));
     opt.set_parameter("is_model_floating_base", _nhpr.param<bool>("is_model_floating_base", true));
-    opt.set_parameter<std::string>("framework", "ROS");
+
+    std::string framework;
+    if (!_config["framework"])
+    {
+            ColoredTextPrinter::print("Missing 'framework', using default (ROS) \n", ColoredTextPrinter::TextColor::Yellow);
+            framework = "ROS";
+    }
+    else
+    {
+        framework  = _config["framework"].as<std::string>();
+    }
+    opt.set_parameter<std::string>("framework", framework);
 
     _model = XBot::ModelInterface::getModel(opt);
     Eigen::VectorXd qhome;
@@ -319,11 +368,10 @@ void Controller::run()
     if (!_init)
     {
         _init = true;
-        // set_stiffness_damping_torque(0.01);
-
+//         set_stiffness_damping_torque(0.01);
         if (!_stiffness_map.empty() || !_damping_map.empty())
         {
-            set_stiffness_damping(1.);
+            set_stiffness_damping(0.1);
         }
 
         _robot->setControlMode(_init_ctrl_map);

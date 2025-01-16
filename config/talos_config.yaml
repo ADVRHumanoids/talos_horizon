@@ -14,11 +14,12 @@ solver:
   ipopt.sb: 'yes'
   print_time: 0
 
-constraints:
-  - foot_contact_l
-  - foot_contact_r
+#constraints:
+
 
 costs:
+  - foot_contact_l
+  - foot_contact_r
   - base_xy
   - base_z
   - joint_posture
@@ -53,11 +54,12 @@ costs:
     - &w_base_ori_y 100.
     - &w_base_xy 50.
     - &w_contact_z 1000.
+    - &w_contact 1000.
     - &w_postural 1.
     - &w_postural_hips 10.
     - &w_postural_knee 0.05
     - &w_postural_ub 1.
-    - &w_v 2.
+    - &w_v 0.5
     - &w_a 1e-1
     - &w_f 6e-3 #2e-2
     - &w_sole_rot 100.
@@ -154,10 +156,12 @@ foot_zero_velocity_r:
 foot_contact_l:
   type: Contact
   subtask: [foot_interaction_l, foot_zero_velocity_l]
+  weight: 500
 
 foot_contact_r:
   type: Contact
   subtask: [foot_interaction_r, foot_zero_velocity_r]
+  weight: 500
 
 # ==================================
 

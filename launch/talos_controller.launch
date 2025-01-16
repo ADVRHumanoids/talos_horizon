@@ -4,13 +4,9 @@
     <arg name="closed_loop" default="false"/>
     <arg name="joy" default="true"/>
 
-    <param name="robot_description" textfile="$(find talos_cartesio_config)/robots/talos.urdf"/>
-    <param name="robot_description_semantic" textfile="$(find talos_cartesio_config)/robots/talos.srdf"/>
+<!--     <param name="robot_description" textfile="$(find talos_cartesio_config)/robots/talos.urdf"/> -->
+<!--     <param name="robot_description_semantic" textfile="$(find talos_cartesio_config)/robots/talos.srdf"/> -->
 
-    <node pkg="cogimon_controller" type="controller" name="talos_controller_node" output="screen">
-        <param name="config" textfile="$(find cogimon_controller)/config/talos_controller_config.yaml"/>
-        <param name="rate" value="1000"/>
-    </node>
 
     <node pkg="joy" type="joy_node" name="joy_node">
         <param name="autorepeat_rate" value="20"/>
@@ -21,6 +17,12 @@
         <param name="closed_loop" value="$(arg closed_loop)"/>
         <param name="joy" value="$(arg joy)"/>
      </node>
+
+     <node pkg="cogimon_controller" type="controller" name="talos_controller_node" output="screen" launch-prefix="bash -c 'sleep 3; $0 $@' " >
+        <param name="config" textfile="$(find cogimon_controller)/config/talos_controller_config.yaml"/>
+        <param name="rate" value="1000"/>
+     </node>
+
 
      <node unless="$(arg xbot)" pkg="rviz" type="rviz" name="rviz" args="-d $(find cogimon_controller)/config/talos.rviz"/>
 </launch>

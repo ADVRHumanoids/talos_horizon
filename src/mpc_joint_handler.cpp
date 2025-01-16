@@ -122,10 +122,10 @@ bool MPCJointHandler::update()
 {
     _robot->sense();
 
-    // resample
+//     resample
     _resampler->resample(1./_rate);
 
-    // get resampled state and set it to the robot
+//     get resampled state and set it to the robot
     Eigen::VectorXd tau;
     _resampler->getState(_x);
     _resampler->getInput(_u);
@@ -165,15 +165,15 @@ bool MPCJointHandler::update()
             pair.second -= _tau_offset[pair.first];
     }
 
-    _robot->setPositionReference(_q);
-    _robot->setVelocityReference(_qdot);
+//    _robot->setPositionReference(_q);
+//    _robot->setVelocityReference(_qdot);
 
-    if (_flag_id)
-    { 
-        _robot->setEffortReference(_tau);
-    }
+//    if (_flag_id)
+//    {
+//        _robot->setEffortReference(_tau);
+//    }
     
-    _robot->move();
+//    _robot->move();
 
     return true;
 }

@@ -26,10 +26,12 @@ from urdf_augment import URDFAugment
 from sensor_msgs.msg import Joy
 from cogimon_controller.msg import WBTrajectory
 from geometry_msgs.msg import PoseStamped, TwistStamped, Vector3, PointStamped
+from sensor_msgs.msg import Imu
 
 from matplotlib import pyplot as hplt
 import time
 from matlogger2 import matlogger
+from scipy.spatial.transform import Rotation
 
 import casadi as cs
 import rospy
@@ -40,7 +42,9 @@ import os
 import colorama
 
 global base_pose
+global base_orientation
 global base_twist
+global angular_velocity
 
 def gt_pose_callback(msg):
     global base_pose
@@ -53,6 +57,14 @@ def gt_twist_callback(msg):
     global base_twist
     base_twist = np.array([msg.twist.linear.x, msg.twist.linear.y, msg.twist.linear.z,
                            msg.twist.angular.x, msg.twist.angular.y, msg.twist.angular.z])
+
+def imu_callback(msg:Imu):
+    global base_orientation
+    global angular_velocity
+    base_orientation = np.array([msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w])
+    base_pose = np.array([0., 0., 0., msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w])
+    angular_velocity = np.array([msg.angular_velocity.x, msg.angular_velocity.y, msg.angular_velocity.z])
+    base_twist = np.array([0., 0., 0., msg.angular_velocity.x, msg.angular_velocity.y, msg.angular_velocity.z])
 
 
 def joy_callback(msg):
@@ -111,6 +123,63 @@ def incremental_rotate(q_initial: np.quaternion, d_angle, axis) -> np.quaternion
 
     return q_result
 
+def set_state_from_robot(robot_joint_names, q_robot, qdot_robot, fixed_joint_map={}):
+    robot.sense()
+
+    # manage fixed joints if any
+    q_map = robot.getJointPositionMap()
+
+    for fixed_joint in fixed_joint_map:
+        if fixed_joint in q_map:
+            del q_map[fixed_joint]
+
+    q_index = 0
+    for j_name in robot_joint_names:
+        q_robot[q_index] = q_map[j_name]
+        q_index += 1
+
+    # numerical problem: two quaternions can represent the same rotation
+    # if difference between the base orientation in the state x and the sensed one base_pose < 0, change sign
+    state_quat_conjugate = np.copy(x_opt[3:7, 0])
+    state_quat_conjugate[:3] *= -1.0
+
+    # normalize the quaternion
+    state_quat_conjugate = state_quat_conjugate / np.linalg.norm(x_opt[3:7, 0])
+    diff_quat = utils.quaternion_multiply(base_pose[3:], state_quat_conjugate)
+
+    if diff_quat[3] < 0:
+        base_pose[3:] = base_pose[3:]
+
+    q = np.hstack([base_pose[3:], q_robot])
+    model.q[3:].setBounds(q, q, nodes=0)
+
+    qdot = robot.getJointVelocity()
+    qdot_map = robot.eigenToMap(qdot)
+
+    for fixed_joint in fixed_joint_map:
+        if fixed_joint in qdot_map:
+            del qdot_map[fixed_joint]
+
+    qdot_index = 0
+    for j_name in robot_joint_names:
+        qdot_robot[qdot_index] = qdot_map[j_name]
+        qdot_index += 1
+
+    # VELOCITY OF PINOCCHIO IS LOCAL, BASE_TWIST FROM  XBOTCORE IS GLOBAL:
+    # transform it in local
+    r_base = Rotation.from_quat(base_pose[3:]).as_matrix()
+
+    r_adj = np.zeros([6, 6])
+    r_adj[:3, :3] = r_base.T
+    r_adj[3:6, 3:6] = r_base.T
+
+    # rotate in the base frame the relative velocity (ee_v_distal - ee_v_base_distal)
+    ee_rel = r_adj @ base_twist
+    # ee_rel = r_base.T @ angular_velocity
+
+    qdot = np.hstack([ee_rel[3:], qdot_robot])
+    model.v[3:].setBounds(qdot, qdot, nodes=0)
+
 
 rospy.init_node('talos_walk')
 
@@ -125,12 +194,15 @@ joystick_flag = rospy.get_param(param_name='~joy', default=True)
 closed_loop = rospy.get_param(param_name='~closed_loop', default=False)
 xbot_param = rospy.get_param(param_name="~xbot", default=False)
 
+if closed_loop:
+    xbot_param = True
+
 '''
 Load urdf and srdf
 '''
-g1_description_folder = rospkg.RosPack().get_path('talos_cartesio_config')
-urdf_path = g1_description_folder + "/robots/talos.urdf"
-srdf_path = g1_description_folder + "/robots/talos.srdf"
+talos_description_folder = rospkg.RosPack().get_path('talos_cartesio_config')
+urdf_path = talos_description_folder + "/robots/talos.urdf"
+srdf_path = talos_description_folder + "/robots/talos.srdf"
 
 srdf = open(srdf_path, 'r').read()
 
@@ -151,7 +223,9 @@ rospy.set_param('/robot_description', urdf)
 
 #
 base_pose = None
+base_orientation = None
 base_twist = None
+angular_velocity = None
 
 if xbot_param:
     cfg = co.ConfigOptions()
@@ -162,9 +236,15 @@ if xbot_param:
     cfg.set_string_parameter('framework', 'ROS')
     cfg.set_bool_parameter('is_model_floating_base', True)
     robot = xbot.RobotInterface(cfg)
+    robot.setControlMode(xbot.ControlMode.Position() + xbot.ControlMode.Velocity() + xbot.ControlMode.Effort())
 
     base_pose = np.array([0.0, 0.0, 0.0, 0., 0.0, 0.0, 1.0])
     base_twist = np.zeros(6)
+
+    rospy.Subscriber("/xbotcore/imu/imu_link", Imu)
+    while base_twist is None and angular_velocity is None:
+        print('Waiting for imu data')
+        rospy.sleep(0.01)
 
     robot.sense()
     q_init = robot.getPositionReference()
@@ -226,10 +306,10 @@ prb.setDt(dt)
 kin_dyn = casadi_kin_dyn.CasadiKinDyn(urdf)  # , fixed_joints=fixed_joint_map)
 
 # setting base of the robot
-FK = kin_dyn.fk('leg_left_6_link')
-init = base_pose.tolist() + list(q_init.values())
-init_pos_foot = FK(q=kin_dyn.mapToQ(q_init))['ee_pos']
-base_pose[2] = -init_pos_foot[2]
+# FK = kin_dyn.fk('leg_left_6_link')
+# init = base_pose.tolist() + list(q_init.values())
+# init_pos_foot = FK(q=kin_dyn.mapToQ(q_init))['ee_pos']
+# base_pose[2] = -init_pos_foot[2]
 
 model = FullModelInverseDynamics(problem=prb,
                                  kd=kin_dyn,
@@ -256,7 +336,9 @@ adding minimization of angular momentum
 '''
 cd_fun = ti.model.kd.computeCentroidalDynamics()
 h_lin, h_ang, dh_lin, dh_ang = cd_fun(model.q, model.v, model.a)
-prb.createIntermediateResidual('min_angular_mom', 1e-1 * dh_ang)
+min_ang_mom_weight = prb.createParameter('min_ang_mom_weight', 1)
+min_ang_mom_weight.assign(1e-1)
+prb.createIntermediateResidual('min_angular_mom', min_ang_mom_weight * dh_ang)
 
 '''
 Foot vertices relative distance constraint
@@ -268,8 +350,8 @@ rel_dist = base_ori.T @ (pos_lf - pos_rf)
 
 # prb.createResidual('relative_distance_lower_x', utils.barrier(rel_dist[0] + 0.3))
 # prb.createResidual('relative_distance_upper_x', utils.barrier1(rel_dist[0] - 0.4))
-prb.createResidual('relative_distance_lower_y', 100. * utils.barrier(rel_dist[1] - 0.15))
-# prb.createResidual('relative_distance_upper_y', 10. * utils.barrier1(rel_dist[1] - 0.35))kl.
+prb.createResidual('relative_distance_lower_y', 100. * utils.barrier(rel_dist[1] - 0.2))
+# prb.createResidual('relative_distance_upper_y', 10. * utils.barrier1(rel_dist[1] - 0.35))
 
 
 # phase manager handling
@@ -328,8 +410,6 @@ time_elapsed_shifting_list = list()
 time_elapsed_solving_list = list()
 time_elapsed_all_list = list()
 
-
-
 if joystick_flag:
     from joy_commands import JoyCommands
 
@@ -338,6 +418,38 @@ if joystick_flag:
 gait_manager_ros = GaitManagerROS(pgm)
 
 robot_joint_names = [elem for elem in kin_dyn.joint_names() if elem not in ['universe', 'reference']]
+q_robot = np.zeros(len(robot_joint_names))
+qdot_robot = np.zeros(len(robot_joint_names))
+
+rospy.set_param('/horizon/walk/step_duration', 15)
+rospy.set_param('/horizon/walk/double_stance', 10)
+
+def ros_param_callback(name, value: int):
+    value = int(value)
+    rospy.set_param(name, value)
+
+from functools import partial
+param_names = ['/horizon/walk/step_duration', '/horizon/walk/double_stance']
+for name in param_names:
+    initial_value = rospy.get_param(name)
+
+    tsc.addROSParam(name, partial(ros_param_callback, name), int(initial_value))
+    tsc.setMinMax(name, 0, ns)
+
+tsc.addParameter('min_ang_mom_weight', min_ang_mom_weight)
+tsc.setMinMax('min_ang_mom_weight', 0, 0.2)
+
+tsc.setMinMax('acceleration_regularization_weight', 0, 1)
+tsc.setMinMax('velocity_regularization_weight', 0, 1)
+tsc.setMinMax('f_left_regularization_0_weight', 0, 0.1)
+tsc.setMinMax('f_left_regularization_1_weight', 0, 0.1)
+tsc.setMinMax('f_left_regularization_2_weight', 0, 0.1)
+tsc.setMinMax('f_left_regularization_3_weight', 0, 0.1)
+tsc.setMinMax('f_right_regularization_0_weight', 0, 0.1)
+tsc.setMinMax('f_right_regularization_1_weight', 0, 0.1)
+tsc.setMinMax('f_right_regularization_2_weight', 0, 0.1)
+tsc.setMinMax('f_right_regularization_3_weight', 0, 0.1)
+tsc.setMinMax('joint_posture_weight', 0, 5)
 
 while not rospy.is_shutdown():
     tic = time.time()
@@ -349,8 +461,12 @@ while not rospy.is_shutdown():
     for i in range(abs(shift_num)):
         xig[:, -1 - i] = x_opt[:, -1]
 
+
     prb.getState().setInitialGuess(xig)
     prb.setInitialState(x0=xig[:, 0])
+
+    if closed_loop:
+        set_state_from_robot(robot_joint_names, q_robot, qdot_robot)
 
     pm.shift()
 
@@ -376,16 +492,26 @@ while not rospy.is_shutdown():
 
     sol_msg.joint_names = [elem for elem in kin_dyn.joint_names() if elem not in ['universe', 'reference']]
 
-    sol_msg.q = solution['q'][:, 0].tolist()
-    sol_msg.v = solution['v'][:, 0].tolist()
-    sol_msg.a = solution['a'][:, 0].tolist()
+    sol_msg.q = solution['q'][:, 2].tolist()
+    sol_msg.v = solution['v'][:, 2].tolist()
+    sol_msg.a = solution['a'][:, 2].tolist()
 
     for frame in model.getForceMap():
         sol_msg.force_names.append(frame)
         sol_msg.f.append(
             Vector3(x=solution[f'f_{frame}'][0, 0], y=solution[f'f_{frame}'][1, 0], z=solution[f'f_{frame}'][2, 0]))
 
+    fmap = {frame: solution[f'f_{frame}'][:, 0] for frame in model.fmap.keys()}
+    tau = model.id_fn.call(solution['q'][:, 1], solution['v'][:, 1].tolist(), solution['a'][:, 1].tolist(), fmap)
+    sol_msg.tau = tau.elements()
+
     solution_publisher.publish(sol_msg)
+
+    if robot:
+        robot.setPositionReference(solution['q'][7:, 2])
+        robot.setVelocityReference(solution['v'][6:, 2])
+        robot.setEffortReference(tau.elements()[6:])
+        robot.move()
 
     # replay stuff
     if robot is None:
