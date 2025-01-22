@@ -121,9 +121,14 @@ void MPCJointHandler::smooth(const Eigen::VectorXd state, const Eigen::VectorXd 
 
 bool MPCJointHandler::update_no_resampler()
 {
-    _robot->setPositionReference(_p.tail(_robot->getJointNum()));
-    _robot->setVelocityReference(_v.tail(_robot->getJointNum()));
-    _robot->setEffortReference(_tau_ff.tail(_robot->getJointNum()));
+    XBot::JointNameMap q_map, qdot_map, tau_map;
+    vectors_to_map<std::string, double>(_joint_names, _p.tail(_resampler->nq() - 7), q_map);
+    vectors_to_map<std::string, double>(_joint_names, _v.tail(_resampler->nv() - 6), qdot_map);
+    vectors_to_map<std::string, double>(_joint_names, _tau_ff.tail(_resampler->nv() - 6), tau_map);
+
+    _robot->setPositionReference(q_map);
+    _robot->setVelocityReference(qdot_map);
+    _robot->setEffortReference(tau_map);
     _robot->move();
 
     return true;

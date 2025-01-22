@@ -253,7 +253,7 @@ void Controller::set_control_mode_map(XBot::ControlMode cm)
         // overwrite with entries in _ctrl_map (custom from the user)
         for (const auto& pair : _zero_ctrl_map)
         {
-                _init_ctrl_map[pair.first] = pair.second;
+            _init_ctrl_map[pair.first] = pair.second;
         }
     }
 

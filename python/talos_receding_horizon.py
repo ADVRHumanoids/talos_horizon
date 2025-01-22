@@ -325,6 +325,22 @@ r_foot_link_name = 'leg_right_6_link'
 base_link_name = 'torso_1_link'
 
 '''
+fixed joints
+'''
+fixed_joint_map = dict()
+fixed_joint_map.update({"arm_left_5_joint": 0.004009140644162072,
+                        "arm_left_6_joint": 0.00358625686761845,
+                        "arm_left_7_joint": 0.02561515245675291,
+                        "arm_right_5_joint": 0.004009140644162072,
+                        "arm_right_6_joint": 0.00358625686761845,
+                        "arm_right_7_joint": 0.02561515245675291,
+                        "head_1_joint": -0.027120105662825997,
+                        "head_2_joint": -0.0002205888117432746})
+
+for fixed_joint in fixed_joint_map:
+    del q_init[fixed_joint]
+
+'''
 Initialize Horizon problem
 '''
 ns = 31
@@ -334,7 +350,7 @@ dt = T / ns
 prb = Problem(ns, receding=True, casadi_type=cs.SX)
 prb.setDt(dt)
 
-kin_dyn = casadi_kin_dyn.CasadiKinDyn(urdf)  # , fixed_joints=fixed_joint_map)
+kin_dyn = casadi_kin_dyn.CasadiKinDyn(urdf, fixed_joints=fixed_joint_map)
 
 # setting base of the robot
 # FK = kin_dyn.fk('leg_left_6_link')
@@ -345,8 +361,8 @@ kin_dyn = casadi_kin_dyn.CasadiKinDyn(urdf)  # , fixed_joints=fixed_joint_map)
 model = FullModelInverseDynamics(problem=prb,
                                  kd=kin_dyn,
                                  q_init=q_init,
-                                 base_init=base_pose)
-# fixed_joint_map=fixed_joint_map)
+                                 base_init=base_pose,
+                                 fixed_joint_map=fixed_joint_map)
 
 
 # rospy.set_param('/robot_description', urdf)
@@ -502,7 +518,7 @@ while not rospy.is_shutdown():
     prb.setInitialState(x0=xig[:, 0])
 
     if closed_loop:
-        set_state_from_robot(robot_joint_names, q_robot, qdot_robot)
+        set_state_from_robot(robot_joint_names, q_robot, qdot_robot, fixed_joint_map)
 
     pm.shift()
 

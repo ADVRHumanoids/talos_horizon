@@ -3,11 +3,28 @@ framework: ROS
 horizon_duration: 1.5
 n_nodes: 31
 
+fixed_joints:
+    "arm_left_5_joint": 0.004009140644162072
+    "arm_left_6_joint": 0.00358625686761845
+    "arm_left_7_joint": 0.02561515245675291
+    "arm_right_5_joint": 0.004009140644162072
+    "arm_right_6_joint": 0.00358625686761845
+    "arm_right_7_joint": 0.02561515245675291
+    "head_1_joint": -0.027120105662825997
+    "head_2_joint": -0.0002205888117432746
+
 define:
+    # open loop
     - &low_stiff 500.
     - &low_damp 60.
     - &high_stiff 2000.
     - &high_damp 100.
+
+    # closed loop
+#    - &low_stiff 50.
+#    - &low_damp 10.
+#    - &high_stiff 25.
+#    - &high_damp 10.
 
 stiffness:
     "leg_left_1_joint": *high_stiff
