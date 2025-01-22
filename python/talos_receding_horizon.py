@@ -194,9 +194,10 @@ def set_state_from_robot(robot_joint_names, q_robot, qdot_robot, fixed_joint_map
 
     qdot = np.hstack([ee_rel[3:], qdot_robot])
     # model.v[3:].setBounds(qdot, qdot, nodes=0)
-    # model.v[6:].setBounds(qdot_robot, qdot_robot, nodes=0)
+    model.v[6:].setBounds(qdot_robot, qdot_robot, nodes=0)
     # model.v[3:6].setBounds(base_twist[3:], base_twist[3:], nodes=0)
     # model.v[3:6].setInitialGuess(base_twist[3:])
+    model.v[6:].setInitialGuess(qdot_robot)
 
 
 rospy.init_node('talos_walk')
@@ -380,6 +381,10 @@ rel_dist = base_ori.T @ (pos_lf - pos_rf)
 prb.createResidual('relative_distance_lower_y', 100. * utils.barrier(rel_dist[1] - 0.2))
 # prb.createResidual('relative_distance_upper_y', 10. * utils.barrier1(rel_dist[1] - 0.35))
 
+f0 = [0, 0, kin_dyn.mass() / 8 * 9.8]
+for cname, cforces in ti.model.cmap.items():
+    for c in cforces:
+        c.setInitialGuess(f0)
 
 # phase manager handling
 
@@ -390,13 +395,20 @@ contact_task_dict = {'leg_left_6_link': 'foot_contact_l',
 z_task_dict = {'leg_left_6_link': 'foot_z_l',
                'leg_right_6_link': 'foot_z_r'}
 
+f_reg_dict = {'leg_left_6_link': ['f_left_regularization_0', 'f_left_regularization_1', 'f_left_regularization_2', 'f_left_regularization_3'],
+               'leg_right_6_link': ['f_right_regularization_0', 'f_right_regularization_1', 'f_right_regularization_2', 'f_right_regularization_3']}
+
 pm = pymanager.PhaseManager(ns + 1)
 pgm = PhaseGaitWrapper(ti, pm, model.getContactMap())
 
 z_traj = np.zeros([7, 1])
 z_traj[2] = 0.
+
+
 for contact_name, timeline in pgm.getContactTimelines().items():
     pgm.getStancePhases()[contact_name].addItem(ti.getTask(contact_task_dict[contact_name]))
+    for contact_reg_task in f_reg_dict[contact_name]:
+        pgm.getStancePhases()[contact_name].addItemReference(ti.getTask(contact_reg_task), np.array(f0))
     pgm.getFlightPhases()[contact_name].addItemReference(ti.getTask(z_task_dict[contact_name]), z_traj)
 
 pgm.initializeTimeline()
@@ -406,16 +418,10 @@ model.v.setBounds(model.v0, model.v0, nodes=0)
 model.v.setBounds(model.v0, model.v0, nodes=ns)
 model.q.setInitialGuess(ti.model.q0)
 
-f0 = [0, 0, kin_dyn.mass() / 8 * 9.8]
-for cname, cforces in ti.model.cmap.items():
-    for c in cforces:
-        c.setInitialGuess(f0)
-
 # finalize taskInterface and solve bootstrap problem
 ti.finalize()
 
 tsc = TaskServerClass(ti)
-
 
 # pm.update()
 rs = pyrosserver.RosServerClass(pm)
@@ -510,6 +516,13 @@ while not rospy.is_shutdown():
     # receive msgs from ros topic and send commands to robot
     gait_manager_ros.run()
     pm.update()
+
+    # for contact, f_contact in model.getContactMap().items():
+    #     for f_var in f_contact:
+    #         print(f_var.getName())
+    #         # print(f"fun: {prb.getCosts(f'reg_{f_var.getName()}')}")
+    #         print(f"par: {prb.getParameters(f'{f_var.getName()}_ref').getValues()[2, :]}")
+    #         print("----------------------------------------------------------------")
 
     ti.rti()
     solution = ti.solution
