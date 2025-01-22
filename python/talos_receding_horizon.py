@@ -185,7 +185,7 @@ def set_state_from_robot(robot_joint_names, q_robot, qdot_robot, fixed_joint_map
     r_adj[3:6, 3:6] = r_base.T
 
     # rotate base_twist in base_link frame (from imu_frame)
-    base_twist[0:3] = b_T_imu.linear @ base_twist[0:3]
+    # base_twist[0:3] = b_T_imu.linear @ base_twist[0:3]
     base_twist[3:] = b_T_imu.linear @ base_twist[3:]
 
     # rotate in the base frame the relative velocity (ee_v_distal - ee_v_base_distal)
@@ -257,17 +257,23 @@ if xbot_param:
     cfg.set_bool_parameter('is_model_floating_base', True)
     model_xbot = xbot.ModelInterface(cfg)
     robot = xbot.RobotInterface(cfg)
-    robot.setControlMode(xbot.ControlMode.Position() + xbot.ControlMode.Velocity() + xbot.ControlMode.Effort())
+    # robot.setControlMode(xbot.ControlMode.Position() + xbot.ControlMode.Velocity() + xbot.ControlMode.Effort())
 
     b_T_imu = model_xbot.getPose('imu_link', 'base_link')
 
-    # rospy.Subscriber("/xbotcore/imu/imu_link", Imu, imu_callback)
-    # while base_pose is None and base_twist is None:
-    #     print('Waiting for imu data')
-    #     rospy.sleep(0.01)
-
-    base_pose = np.array([0., 0., 0., 0., 0., 0., 1.])
-    base_twist = np.array([0., 0., 0., 0., 0., 0.])
+    if closed_loop:
+        rospy.Subscriber("/xbotcore/imu/imu_link", Imu, imu_callback)
+        while base_pose is None and base_twist is None:
+            print('Waiting for imu data')
+            rospy.sleep(0.01)
+        w_T_imu = Affine3(rot=base_pose[3:])
+        w_T_b = w_T_imu * b_T_imu.inverse()
+        base_pose[3:] = w_T_b.quaternion
+        base_pose[3:] = base_pose[3:] / np.linalg.norm(base_pose[3:])
+        base_twist[3:] = b_T_imu.linear @ base_twist[3:]
+    else:
+        base_pose = np.array([0., 0., 0., 0., 0., 0., 1.])
+        base_twist = np.array([0., 0., 0., 0., 0., 0.])
 
 
     robot.sense()
@@ -544,17 +550,17 @@ while not rospy.is_shutdown():
         sol_msg.f.append(
             Vector3(x=solution[f'f_{frame}'][0, 0], y=solution[f'f_{frame}'][1, 0], z=solution[f'f_{frame}'][2, 0]))
 
-    fmap = {frame: solution[f'f_{frame}'][:, 0] for frame in model.fmap.keys()}
+    fmap = {frame: solution[f'f_{frame}'][:, 1] for frame in model.fmap.keys()}
     tau = model.id_fn.call(solution['q'][:, 1], solution['v'][:, 1].tolist(), solution['a'][:, 1].tolist(), fmap)
     sol_msg.tau = tau.elements()
 
     solution_publisher.publish(sol_msg)
 
-    if robot:
-        robot.setPositionReference(solution['q'][7:, 2])
-        robot.setVelocityReference(solution['v'][6:, 2])
-        robot.setEffortReference(tau.elements()[6:])
-        robot.move()
+    # if robot:
+    #     robot.setPositionReference(solution['q'][7:, 2])
+    #     robot.setVelocityReference(solution['v'][6:, 2])
+    #     robot.setEffortReference(tau.elements()[6:])
+    #     robot.move()
 
     # replay stuff
     if robot is None:

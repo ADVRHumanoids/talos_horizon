@@ -28,6 +28,7 @@ public:
     void setTorqueOffset(XBot::JointNameMap tau_offset);
 
     bool update() override;
+    bool update_no_resampler();
 
 private:
 
@@ -60,7 +61,7 @@ private:
     XBot::JointNameMap _q, _qdot, _qddot, _tau;
     XBot::JointNameMap _tau_offset;
 
-    Eigen::VectorXd _p, _v, _a, _f;
+    Eigen::VectorXd _p, _v, _a, _f, _tau_ff;
     Eigen::VectorXd _j, _fdot;
 
     std::vector<std::string> _joint_names;

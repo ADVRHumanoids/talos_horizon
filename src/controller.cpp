@@ -153,7 +153,8 @@ void Controller::init_load_model()
 
         // prepare control map as pos + vel + effort
         set_control_mode_map(XBot::ControlMode::Position() + XBot::ControlMode::Velocity() + XBot::ControlMode::Effort());
-
+//        set_control_mode_map(XBot::ControlMode::Stiffness() + XBot::ControlMode::Damping());
+//        _robot->setControlMode(_init_ctrl_map);
 
         if(_nhpr.hasParam("torque_offset"))
         {
@@ -305,7 +306,7 @@ void Controller::run()
     {
         if (_init)
         {
-            _mpc_handler->update();
+            _mpc_handler->update_no_resampler();
             return;
         }
     }

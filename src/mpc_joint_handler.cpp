@@ -62,44 +62,45 @@ void MPCJointHandler::mpc_joint_callback(const cogimon_controller::WBTrajectoryC
     {
         _joint_names.insert(_joint_names.begin(), std::begin(_mpc_solution.joint_names), std::end(_mpc_solution.joint_names));
 
-        _x.resize(_mpc_solution.q.size() + _mpc_solution.v.size());
-        _u.resize(_mpc_solution.a.size() + _mpc_solution.force_names.size() * 6);
+//        _x.resize(_mpc_solution.q.size() + _mpc_solution.v.size());
+//        _u.resize(_mpc_solution.a.size() + _mpc_solution.force_names.size() * 6);
 
-        _p.resize(_resampler->nq());
-        _v.resize(_resampler->nv());
-        _a.resize(_resampler->nv());
-        _f.resize(_mpc_solution.force_names.size() * 6);
+//        _p.resize(_resampler->nq());
+//        _v.resize(_resampler->nv());
+//        _a.resize(_resampler->nv());
+//        _f.resize(_mpc_solution.force_names.size() * 6);
 
-        std::vector<std::string> frames(_mpc_solution.force_names.data(), _mpc_solution.force_names.data() + _mpc_solution.force_names.size());
-        _resampler->setFrames(frames);
+//        std::vector<std::string> frames(_mpc_solution.force_names.data(), _mpc_solution.force_names.data() + _mpc_solution.force_names.size());
+//        _resampler->setFrames(frames);
 
-        if (frames.empty())
-        {
-            _flag_id = false;
-        }
+//        if (frames.empty())
+//        {
+//            _flag_id = false;
+//        }
     }
 
     // getting the input from the MPC solution
     _p = Eigen::VectorXd::Map(_mpc_solution.q.data(), _mpc_solution.q.size());
     _v = Eigen::VectorXd::Map(_mpc_solution.v.data(), _mpc_solution.v.size());
     _a = Eigen::VectorXd::Map(_mpc_solution.a.data(), _mpc_solution.a.size());
+    _tau_ff = Eigen::VectorXd::Map(_mpc_solution.tau.data(), _mpc_solution.tau.size());
 
-    for (int i = 0; i < _mpc_solution.force_names.size(); i++)
-    {
-        _f.block<6, 1>(i * 6, 0) << _mpc_solution.f[i].x, _mpc_solution.f[i].y, _mpc_solution.f[i].z, 0, 0, 0;
-    }
+//    for (int i = 0; i < _mpc_solution.force_names.size(); i++)
+//    {
+//        _f.block<6, 1>(i * 6, 0) << _mpc_solution.f[i].x, _mpc_solution.f[i].y, _mpc_solution.f[i].z, 0, 0, 0;
+//    }
 
-    _x << _p, _v;
-    _u << _a, _f;
+//    _x << _p, _v;
+//    _u << _a, _f;
 
-    if(!_resampler->setState(_x))
-        throw std::runtime_error("wrong dimension of the state vector! " + std::to_string(_x.size()) + " != ");
-    if(!_resampler->setInput(_u))
-        throw std::runtime_error("wrong dimension of the input vector! " + std::to_string(_u.size()) + " != ");
+//    if(!_resampler->setState(_x))
+//        throw std::runtime_error("wrong dimension of the state vector! " + std::to_string(_x.size()) + " != ");
+//    if(!_resampler->setInput(_u))
+//        throw std::runtime_error("wrong dimension of the input vector! " + std::to_string(_u.size()) + " != ");
 
 
     _is_callback_done = true;
-    _solution_index = 1;
+//    _solution_index = 1;
 }
 
 void MPCJointHandler::init_publishers_and_subscribers()
@@ -116,6 +117,16 @@ void MPCJointHandler::smooth(const Eigen::VectorXd state, const Eigen::VectorXd 
 {
     double alpha = 0.1;
     out = alpha * input + (1-alpha) * state;
+}
+
+bool MPCJointHandler::update_no_resampler()
+{
+    _robot->setPositionReference(_p.tail(_robot->getJointNum()));
+    _robot->setVelocityReference(_v.tail(_robot->getJointNum()));
+    _robot->setEffortReference(_tau_ff.tail(_robot->getJointNum()));
+    _robot->move();
+
+    return true;
 }
 
 bool MPCJointHandler::update()
