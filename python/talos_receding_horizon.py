@@ -63,6 +63,13 @@ def imu_callback(msg:Imu):
     base_pose = np.array([0., 0., 0., msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w])
     base_twist = np.array([0., 0., 0., msg.angular_velocity.x, msg.angular_velocity.y, msg.angular_velocity.z])
 
+    # rotate in base_link frame
+    w_T_imu = Affine3(rot=base_pose[3:])
+    w_T_b = w_T_imu * b_T_imu.inverse()
+    base_pose[3:] = w_T_b.quaternion
+    base_pose[3:] = base_pose[3:] / np.linalg.norm(base_pose[3:])
+    base_twist[3:] = b_T_imu.linear @ base_twist[3:]
+
 
 def joy_callback(msg):
     global joy_msg
@@ -130,20 +137,10 @@ def set_state_from_robot(robot_joint_names, q_robot, qdot_robot, fixed_joint_map
         if fixed_joint in q_map:
             del q_map[fixed_joint]
 
-    q_eigen = robot.mapToEigen(q_map)
-
     q_index = 0
     for j_name in robot_joint_names:
         q_robot[q_index] = q_map[j_name]
         q_index += 1
-
-    # rotate quaternion in base_link frame (from imu_link frame)
-    w_T_imu = Affine3(rot=base_pose[3:])
-    w_T_b = w_T_imu * b_T_imu.inverse()
-    base_pose[3:] = w_T_b.quaternion
-    base_pose[3:] = base_pose[3:] / np.linalg.norm(base_pose[3:])
-
-    print(f'base_ori: {base_pose[3:]}')
 
     # numerical problem: two quaternions can represent the same rotation
     # if difference between the base orientation in the state x and the sensed one base_pose < 0, change sign
@@ -184,13 +181,8 @@ def set_state_from_robot(robot_joint_names, q_robot, qdot_robot, fixed_joint_map
     r_adj[:3, :3] = r_base.T
     r_adj[3:6, 3:6] = r_base.T
 
-    # rotate base_twist in base_link frame (from imu_frame)
-    # base_twist[0:3] = b_T_imu.linear @ base_twist[0:3]
-    base_twist[3:] = b_T_imu.linear @ base_twist[3:]
-
     # rotate in the base frame the relative velocity (ee_v_distal - ee_v_base_distal)
     ee_rel = r_adj @ base_twist
-    # ee_rel = r_base.T @ angular_velocity
 
     qdot = np.hstack([ee_rel[3:], qdot_robot])
     # model.v[3:].setBounds(qdot, qdot, nodes=0)
@@ -265,11 +257,7 @@ if xbot_param:
         while base_pose is None and base_twist is None:
             print('Waiting for imu data')
             rospy.sleep(0.01)
-        w_T_imu = Affine3(rot=base_pose[3:])
-        w_T_b = w_T_imu * b_T_imu.inverse()
-        base_pose[3:] = w_T_b.quaternion
-        base_pose[3:] = base_pose[3:] / np.linalg.norm(base_pose[3:])
-        base_twist[3:] = b_T_imu.linear @ base_twist[3:]
+
     else:
         base_pose = np.array([0., 0., 0., 0., 0., 0., 1.])
         base_twist = np.array([0., 0., 0., 0., 0., 0.])
