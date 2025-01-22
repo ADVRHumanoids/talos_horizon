@@ -14,16 +14,18 @@ solver:
   ipopt.sb: 'yes'
   print_time: 0
 
-#constraints:
-
-costs:
+constraints:
   - foot_contact_l
   - foot_contact_r
+
+costs:
+#  - foot_contact_l
+#  - foot_contact_r
   - base_xy
   - base_z
   - joint_posture
 #  - joint_posture_hips
-#  - joint_posture_knee
+#  - joint_posture_ankle
 #  - joint_posture_upper_body
   - base_orientation
 #  - base_orientation_2
@@ -51,11 +53,11 @@ costs:
     - &w_base_ori 10.
     - &w_base_ori_y 100.
     - &w_base_xy 50.
-    - &w_contact_z 1000.
-    - &w_contact 500.
+    - &w_contact_z 1e3
+    - &w_contact 1e5
     - &w_postural 5.
     - &w_postural_hips 10.
-    - &w_postural_knee 0.05
+    - &w_postural_ankle 10.
     - &w_postural_ub 1.
     - &w_v 0.01
     - &w_a 4e-1
@@ -122,6 +124,7 @@ foot_interaction_l:
   fn_min: 10.0
   friction_coeff: 0.5
   enable_fc: false
+  weight: *w_contact
   vertex_frames:
     - leg_left_6_link_lower_left_link
     - leg_left_6_link_upper_left_link
@@ -133,6 +136,7 @@ foot_zero_velocity_l:
   distal_link: leg_left_6_link
   indices: [0, 1, 2, 5]
   cartesian_type: velocity
+  weight: *w_contact
 
 foot_interaction_r:
   type: VertexForce
@@ -140,6 +144,7 @@ foot_interaction_r:
   fn_min: 10.0
   friction_coeff: 0.5
   enable_fc: false
+  weight: *w_contact
   vertex_frames:
     - leg_right_6_link_lower_left_link
     - leg_right_6_link_upper_left_link
@@ -151,16 +156,15 @@ foot_zero_velocity_r:
   distal_link: leg_right_6_link
   indices: [0, 1, 2, 5]
   cartesian_type: velocity
+  weight: *w_contact
 
 foot_contact_l:
   type: Contact
   subtask: [foot_interaction_l, foot_zero_velocity_l]
-  weight: *w_contact
 
 foot_contact_r:
   type: Contact
   subtask: [foot_interaction_r, foot_zero_velocity_r]
-  weight: *w_contact
 
 # ==================================
 
@@ -175,11 +179,11 @@ joint_posture:
 #            'right_shoulder_pitch_joint', 'right_shoulder_roll_joint', 'right_shoulder_yaw_joint', 'right_elbow_joint', 'right_wrist_roll_joint', 'right_wrist_pitch_joint', 'right_wrist_yaw_joint']
   nodes: ${range(N-5, N)}
 
-joint_posture_knee:
+joint_posture_ankle:
   type: Postural
-  weight: *w_postural_knee
+  weight: *w_postural_ankle
 #  indices: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
-  indices: ['right_knee_joint', 'left_knee_joint']
+  indices: ['leg_left_6_joint', 'leg_right_6_joint']
   nodes: all
 
 joint_posture_hips:
