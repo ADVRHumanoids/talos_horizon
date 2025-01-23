@@ -309,8 +309,8 @@ else:
 
 rospy.sleep(2)
 
-l_foot_link_name = 'leg_left_6_link'
-r_foot_link_name = 'leg_right_6_link'
+l_foot_link_name = 'left_sole_link'
+r_foot_link_name = 'right_sole_link'
 base_link_name = 'torso_1_link'
 
 '''
@@ -399,14 +399,14 @@ for cname, cforces in ti.model.cmap.items():
 # phase manager handling
 
 # connects the frame (leg_left_6_link) with the task (foot_contact_l)
-contact_task_dict = {'leg_left_6_link': 'foot_contact_l',
-                     'leg_right_6_link': 'foot_contact_r'}
+contact_task_dict = {'left_sole_link': 'foot_contact_l',
+                     'right_sole_link': 'foot_contact_r'}
 
-z_task_dict = {'leg_left_6_link': 'foot_z_l',
-               'leg_right_6_link': 'foot_z_r'}
+z_task_dict = {'left_sole_link': 'foot_z_l',
+               'right_sole_link': 'foot_z_r'}
 
-f_reg_dict = {'leg_left_6_link': ['f_left_regularization_0', 'f_left_regularization_1', 'f_left_regularization_2', 'f_left_regularization_3'],
-               'leg_right_6_link': ['f_right_regularization_0', 'f_right_regularization_1', 'f_right_regularization_2', 'f_right_regularization_3']}
+f_reg_dict = {'left_sole_link': ['f_left_regularization_0', 'f_left_regularization_1', 'f_left_regularization_2', 'f_left_regularization_3'],
+              'right_sole_link': ['f_right_regularization_0', 'f_right_regularization_1', 'f_right_regularization_2', 'f_right_regularization_3']}
 
 pm = pymanager.PhaseManager(ns + 1)
 pgm = PhaseGaitWrapper(ti, pm, model.getContactMap())

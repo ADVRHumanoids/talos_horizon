@@ -102,7 +102,7 @@ base_yaw_orientation:
 
 foot_rot_l:
   type: Cartesian
-  distal_link: leg_left_6_link
+  distal_link: left_sole_link # leg_right_6_link
   indices: [3, 4, 5]
   nodes: all
 #  cartesian_type: position
@@ -110,7 +110,7 @@ foot_rot_l:
 
 foot_rot_r:
   type: Cartesian
-  distal_link: leg_right_6_link
+  distal_link: right_sole_link
   indices: [3, 4, 5]
   nodes: all
 #  cartesian_type: position
@@ -120,7 +120,7 @@ foot_rot_r:
 
 foot_interaction_l:
   type: VertexForce
-  frame: leg_left_6_link
+  frame: left_sole_link
   fn_min: 10.0
   friction_coeff: 0.5
   enable_fc: false
@@ -133,14 +133,14 @@ foot_interaction_l:
 
 foot_zero_velocity_l:
   type: Cartesian
-  distal_link: leg_left_6_link
+  distal_link: left_sole_link
   indices: [0, 1, 2, 5]
   cartesian_type: velocity
   weight: *w_contact
 
 foot_interaction_r:
   type: VertexForce
-  frame: leg_right_6_link
+  frame: right_sole_link
   fn_min: 10.0
   friction_coeff: 0.5
   enable_fc: false
@@ -153,7 +153,7 @@ foot_interaction_r:
 
 foot_zero_velocity_r:
   type: Cartesian
-  distal_link: leg_right_6_link
+  distal_link: right_sole_link
   indices: [0, 1, 2, 5]
   cartesian_type: velocity
   weight: *w_contact
@@ -260,28 +260,28 @@ f_right_regularization_3:
 
 foot_z_l:
   type: Cartesian
-  distal_link: leg_left_6_link
+  distal_link: left_sole_link
   indices: [2]
   cartesian_type: position
   weight: *w_contact_z
 
 foot_z_r:
   type: Cartesian
-  distal_link: leg_right_6_link
+  distal_link: right_sole_link
   indices: [2]
   cartesian_type: position
   weight: *w_contact_z
 
 foot_zero_vel_xy_l:
   type: Cartesian
-  distal_link: leg_left_6_link
+  distal_link: left_sole_link
   indices: [0, 1]
   cartesian_type: velocity
   weight: *w_contact_z
 
 foot_zero_vel_xy_r:
   type: Cartesian
-  distal_link: leg_right_6_link
+  distal_link: right_sole_link
   indices: [0, 1]
   cartesian_type: velocity
   weight: *w_contact_z
