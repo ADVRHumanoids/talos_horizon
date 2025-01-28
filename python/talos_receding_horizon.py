@@ -23,10 +23,11 @@ from horizon.rhc.gait_manager import PhaseGaitWrapper
 from horizon.rhc.ros.gait_manager_ros import GaitManagerROS
 
 from urdf_augment import URDFAugment
-from sensor_msgs.msg import Joy
+from sensor_msgs.msg import Joy, JointState
 from cogimon_controller.msg import WBTrajectory
 from geometry_msgs.msg import PoseStamped, TwistStamped, Vector3, PointStamped
 from sensor_msgs.msg import Imu
+from std_msgs.msg import Float32MultiArray
 
 from matplotlib import pyplot as hplt
 import time
@@ -44,6 +45,9 @@ import colorama
 global base_pose
 global base_twist
 global b_T_imu
+global joint_read
+global joint_cmd
+global joint_names
 
 def gt_pose_callback(msg):
     global base_pose
@@ -69,6 +73,17 @@ def imu_callback(msg:Imu):
     base_pose[3:] = w_T_b.quaternion
     base_pose[3:] = base_pose[3:] / np.linalg.norm(base_pose[3:])
     base_twist[3:] = b_T_imu.linear @ base_twist[3:]
+    print(base_pose)
+
+def joint_read_callback(msg: JointState):
+    global joint_read
+    joint_read = msg.position
+
+def joint_cmd_callback(msg: JointState):
+    global joint_cmd
+    global joint_names
+    joint_cmd = msg.position
+    joint_names = msg.name
 
 
 def joy_callback(msg):
@@ -154,9 +169,11 @@ def set_state_from_robot(robot_joint_names, q_robot, qdot_robot, fixed_joint_map
     if diff_quat[3] < 0:
         base_pose[3:] = -base_pose[3:]
 
-    q = np.hstack([base_pose[3:], q_robot])
-    # model.q[3:].setBounds(q, q, nodes=0)
-    model.q[7:].setBounds(q_robot, q_robot, nodes=0)
+    q = np.hstack([base_pose, q_robot])
+    model.q[3:].setBounds(q[3:], q[3:], nodes=0)
+    model.q[3:].setInitialGuess(q[3:])
+    # model.q[7:].setBounds(q_robot, q_robot, nodes=0)
+    # model.q[7:].setInitialGuess(q_robot)
     # model.q[3:7].setBounds(base_pose[3:], base_pose[3:], nodes=0)
     model.q[7:].setInitialGuess(q_robot)
 
@@ -186,10 +203,10 @@ def set_state_from_robot(robot_joint_names, q_robot, qdot_robot, fixed_joint_map
 
     qdot = np.hstack([ee_rel[3:], qdot_robot])
     # model.v[3:].setBounds(qdot, qdot, nodes=0)
-    model.v[6:].setBounds(qdot_robot, qdot_robot, nodes=0)
+    # model.v[6:].setBounds(qdot_robot, qdot_robot, nodes=0)
     # model.v[3:6].setBounds(base_twist[3:], base_twist[3:], nodes=0)
     # model.v[3:6].setInitialGuess(base_twist[3:])
-    model.v[6:].setInitialGuess(qdot_robot)
+    # model.v[6:].setInitialGuess(qdot_robot)
 
 
 rospy.init_node('talos_walk')
@@ -204,11 +221,17 @@ Load ros params
 joystick_flag = rospy.get_param(param_name='~joy', default=True)
 closed_loop = rospy.get_param(param_name='~closed_loop', default=False)
 xbot_param = rospy.get_param(param_name="~xbot", default=False)
+talos_param = rospy.get_param(param_name="~talos", default=False)
 
-# closed_loop = True
+if talos_param:
+    solution_publisher = rospy.Publisher('/inria_controller/sub_joint_cmd', JointState, queue_size=10)
+else:
+    solution_publisher = rospy.Publisher('/mpc_solution', WBTrajectory, queue_size=10)
 
-if closed_loop:
-    xbot_param = True
+time_publisher = rospy.Publisher('/mpc_node_loop_time', Float32MultiArray, queue_size=10)
+
+# if closed_loop:
+#     xbot_param = True
 
 '''
 Load urdf and srdf
@@ -235,9 +258,12 @@ urdf = urdf_aug.getXml()
 rospy.delete_param('/robot_description')
 rospy.set_param('/robot_description', urdf)
 
+robot = None
 base_pose = None
 base_twist = None
 b_T_imu = None
+joint_read = None
+joint_cmd = None
 
 if xbot_param:
     cfg = co.ConfigOptions()
@@ -255,12 +281,13 @@ if xbot_param:
 
     if closed_loop:
         rospy.Subscriber("/xbotcore/imu/imu_link", Imu, imu_callback)
-        while base_pose is None and base_twist is None:
+        while base_pose is None or base_twist is None:
             print('Waiting for imu data')
             rospy.sleep(0.01)
 
     else:
-        base_pose = np.array([0., 0., 0., 0., 0., 0., 1.])
+        base_pose = np.array([0., 0., 0., 0., 0.005, 0., 0.9999])
+        # base_pose = np.array([0., 0., 0., 0., 0, 0., 1])
         base_twist = np.array([0., 0., 0., 0., 0., 0.])
 
 
@@ -269,6 +296,22 @@ if xbot_param:
     q_init = robot.eigenToMap(q_init)
 
     print(colorama.Fore.CYAN + 'RobotInterface created!' + colorama.Fore.RESET)
+
+elif talos_param:
+    rospy.Subscriber("/inria_controller/pub_joint_read", JointState, joint_read_callback)
+    rospy.Subscriber("/inria_controller/pub_joint_cmd", JointState, joint_cmd_callback)
+
+    while joint_cmd is None or joint_read is None:
+        print('Waiting for joint data')
+        rospy.sleep(0.01)
+
+    print(colorama.Fore.CYAN + 'TalosInterface created!' + colorama.Fore.RESET)
+
+    q_init = {jname: jpos for jname, jpos in zip(joint_names, joint_cmd)}
+    base_pose = np.array([0., 0., 0., 0., 0.005, 0., 0.9999])
+    # base_pose = [0, 0, 0, 0, 0, 0, 1]
+    base_twist = [0, 0, 0, 0, 0, 0]
+
 
 else:
     print(colorama.Fore.CYAN + 'RobotInterface not created' + colorama.Fore.RESET)
@@ -317,17 +360,19 @@ base_link_name = 'torso_1_link'
 fixed joints
 '''
 fixed_joint_map = dict()
-fixed_joint_map.update({"arm_left_5_joint": 0.004009140644162072,
-                        "arm_left_6_joint": 0.00358625686761845,
-                        "arm_left_7_joint": 0.02561515245675291,
-                        "arm_right_5_joint": 0.004009140644162072,
-                        "arm_right_6_joint": 0.00358625686761845,
-                        "arm_right_7_joint": 0.02561515245675291,
-                        "head_1_joint": -0.027120105662825997,
-                        "head_2_joint": -0.0002205888117432746})
+fixed_joint_map.update({
+    "arm_left_5_joint": 0.004009140644162072,
+    "arm_left_6_joint": 0.00358625686761845,
+    "arm_left_7_joint": 0.02561515245675291,
+    "arm_right_5_joint": 0.004009140644162072,
+    "arm_right_6_joint": 0.00358625686761845,
+    "arm_right_7_joint": 0.02561515245675291,
+    "head_1_joint": -0.027120105662825997,
+    "head_2_joint": -0.0002205888117432746})
 
 for fixed_joint in fixed_joint_map:
-    del q_init[fixed_joint]
+    if fixed_joint in q_init:
+        del q_init[fixed_joint]
 
 '''
 Initialize Horizon problem
@@ -388,7 +433,7 @@ rel_dist = base_ori.T @ (pos_lf - pos_rf)
 
 # prb.createResidual('relative_distance_lower_x', utils.barrier(rel_dist[0] + 0.3))
 # prb.createResidual('relative_distance_upper_x', utils.barrier1(rel_dist[0] - 0.4))
-prb.createResidual('relative_distance_lower_y', 100. * utils.barrier(rel_dist[1] - 0.3))
+prb.createResidual('relative_distance_lower_y', 100. * utils.barrier(rel_dist[1] - 0.25))
 # prb.createResidual('relative_distance_upper_y', 10. * utils.barrier1(rel_dist[1] - 0.35))
 
 f0 = [0, 0, kin_dyn.mass() / 8 * 9.8]
@@ -409,6 +454,8 @@ f_reg_dict = {'left_sole_link': ['f_left_regularization_0', 'f_left_regularizati
               'right_sole_link': ['f_right_regularization_0', 'f_right_regularization_1', 'f_right_regularization_2', 'f_right_regularization_3']}
 
 pm = pymanager.PhaseManager(ns + 1)
+rs = pyrosserver.RosServerClass(pm)
+
 pgm = PhaseGaitWrapper(ti, pm, model.getContactMap())
 
 z_traj = np.zeros([7, 1])
@@ -417,8 +464,8 @@ z_traj[2] = 0.
 
 for contact_name, timeline in pgm.getContactTimelines().items():
     pgm.getStancePhases()[contact_name].addItem(ti.getTask(contact_task_dict[contact_name]))
-    for contact_reg_task in f_reg_dict[contact_name]:
-        pgm.getStancePhases()[contact_name].addItemReference(ti.getTask(contact_reg_task), np.array(f0))
+    # for contact_reg_task in f_reg_dict[contact_name]:
+    #     pgm.getStancePhases()[contact_name].addItemReference(ti.getTask(contact_reg_task), np.array(f0))
     pgm.getFlightPhases()[contact_name].addItemReference(ti.getTask(z_task_dict[contact_name]), z_traj)
 
 pgm.initializeTimeline()
@@ -511,13 +558,14 @@ while not rospy.is_shutdown():
     prb.getState().setInitialGuess(xig)
     prb.setInitialState(x0=xig[:, 0])
 
+
     if closed_loop:
         set_state_from_robot(robot_joint_names, q_robot, qdot_robot, fixed_joint_map)
 
     pm.shift()
 
     # publishes to ros phase manager info
-    rs.run()
+    # rs.run()
 
     if joystick_flag:
         # receive msgs from joystick and publishes to ROS topic
@@ -525,6 +573,7 @@ while not rospy.is_shutdown():
 
     # receive msgs from ros topic and send commands to robot
     gait_manager_ros.run()
+
     pm.update()
 
     # for contact, f_contact in model.getContactMap().items():
@@ -539,26 +588,36 @@ while not rospy.is_shutdown():
     # for force_name in model.getForceMap():
     #     logger.add(force_name, solution[f'f_{force_name}'][:, 0])
 
-    sol_msg = WBTrajectory()
-    sol_msg.header.frame_id = 'world'
-    sol_msg.header.stamp = rospy.Time.now()
 
-    sol_msg.joint_names = [elem for elem in kin_dyn.joint_names() if elem not in ['universe', 'reference']]
+    fmap = {frame: solution[f'f_{frame}'][:, 0] for frame in model.fmap.keys()}
+    tau = model.id_fn.call(solution['q'][:, 0], solution['v'][:, 0].tolist(), solution['a'][:, 0].tolist(), fmap)
 
-    sol_msg.q = solution['q'][:, 2].tolist()
-    sol_msg.v = solution['v'][:, 2].tolist()
-    sol_msg.a = solution['a'][:, 2].tolist()
+    if talos_param:
+        sol_msg = JointState()
+        sol_msg.name = [elem for elem in kin_dyn.joint_names() if elem not in ['universe', 'reference']]
+        sol_msg.position = solution['q'][7:, 1].tolist()
+        sol_msg.velocity = solution['v'][6:, 1].tolist()
+        sol_msg.effort = tau.elements()[6:]
+        solution_publisher.publish(sol_msg)
+    else:
+        sol_msg = WBTrajectory()
+        sol_msg.header.frame_id = 'world'
+        sol_msg.header.stamp = rospy.Time.now()
 
-    for frame in model.getForceMap():
-        sol_msg.force_names.append(frame)
-        sol_msg.f.append(
-            Vector3(x=solution[f'f_{frame}'][0, 0], y=solution[f'f_{frame}'][1, 0], z=solution[f'f_{frame}'][2, 0]))
+        sol_msg.joint_names = [elem for elem in kin_dyn.joint_names() if elem not in ['universe', 'reference']]
 
-    fmap = {frame: solution[f'f_{frame}'][:, 1] for frame in model.fmap.keys()}
-    tau = model.id_fn.call(solution['q'][:, 1], solution['v'][:, 1].tolist(), solution['a'][:, 1].tolist(), fmap)
-    sol_msg.tau = tau.elements()
+        sol_msg.q = solution['q'][:, 2].tolist()
+        sol_msg.v = solution['v'][:, 2].tolist()
+        sol_msg.a = solution['a'][:, 2].tolist()
 
-    solution_publisher.publish(sol_msg)
+        for frame in model.getForceMap():
+            sol_msg.force_names.append(frame)
+            sol_msg.f.append(
+                Vector3(x=solution[f'f_{frame}'][0, 0], y=solution[f'f_{frame}'][1, 0], z=solution[f'f_{frame}'][2, 0]))
+
+        sol_msg.tau = tau.elements()
+
+        solution_publisher.publish(sol_msg)
 
     # if robot:
     #     robot.setPositionReference(solution['q'][7:, 2])
@@ -566,15 +625,16 @@ while not rospy.is_shutdown():
     #     robot.setEffortReference(tau.elements()[6:])
     #     robot.move()
 
-    # replay stuff
-    if robot is None:
+    if robot is not None:
         repl.frame_force_mapping = {cname: solution[f.getName()] for cname, f in ti.model.fmap.items()}
         repl.publish_joints(solution['q'][:, 0])
         repl.publishContactForces(rospy.Time.now(), solution['q'][:, 0], 0)
 
     # time_elapsed_all = time.time() - tic
 
-    tsc.update()
+    # tsc.update()
+
+    rs.run()
 
     rate.sleep()
 

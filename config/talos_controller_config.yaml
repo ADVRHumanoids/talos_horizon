@@ -23,7 +23,7 @@ define:
     # closed loop
 #    - &low_stiff 50.
 #    - &low_damp 10.
-#    - &high_stiff 25.
+#    - &high_stiff 200.
 #    - &high_damp 10.
 
 stiffness:
