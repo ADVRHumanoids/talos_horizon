@@ -109,10 +109,10 @@ class URDFAugment:
 
     def addRectangleReferenceFrame(self, parent_link_name, size, offset_x = 0.0):
 
-        self.addReferenceFrame(f'{parent_link_name}_lower_left_link', parent_link_name, origin_xyz=[-size[0] / 2 + offset_x, -size[1] / 2, 0])
-        self.addReferenceFrame(f'{parent_link_name}_lower_right_link',parent_link_name, origin_xyz=[-size[0] / 2 + offset_x, size[1] / 2, 0])
-        self.addReferenceFrame(f'{parent_link_name}_upper_left_link', parent_link_name, origin_xyz=[size[0] / 2 + offset_x, -size[1] / 2, 0])
-        self.addReferenceFrame(f'{parent_link_name}_upper_right_link',parent_link_name, origin_xyz=[size[0] / 2 + offset_x, size[1] / 2, 0])
+        self.addReferenceFrame(f'{parent_link_name}_lower_right_link', parent_link_name, origin_xyz=[-size[0] / 2 + offset_x, -size[1] / 2, 0])
+        self.addReferenceFrame(f'{parent_link_name}_lower_left_link',parent_link_name, origin_xyz=[-size[0] / 2 + offset_x, size[1] / 2, 0])
+        self.addReferenceFrame(f'{parent_link_name}_upper_right_link', parent_link_name, origin_xyz=[size[0] / 2 + offset_x, -size[1] / 2, 0])
+        self.addReferenceFrame(f'{parent_link_name}_upper_left_link',parent_link_name, origin_xyz=[size[0] / 2 + offset_x, size[1] / 2, 0])
 
 
 

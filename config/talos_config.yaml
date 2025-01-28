@@ -126,10 +126,10 @@ foot_interaction_l:
   enable_fc: false
   weight: *w_contact
   vertex_frames:
-    - leg_left_6_link_lower_left_link
-    - leg_left_6_link_upper_left_link
-    - leg_left_6_link_lower_right_link
-    - leg_left_6_link_upper_right_link
+    - left_contact_link_lower_left_link
+    - left_contact_link_upper_left_link
+    - left_contact_link_lower_right_link
+    - left_contact_link_upper_right_link
 
 foot_zero_velocity_l:
   type: Cartesian
@@ -146,10 +146,10 @@ foot_interaction_r:
   enable_fc: false
   weight: *w_contact
   vertex_frames:
-    - leg_right_6_link_lower_left_link
-    - leg_right_6_link_upper_left_link
-    - leg_right_6_link_lower_right_link
-    - leg_right_6_link_upper_right_link
+    - right_contact_link_lower_left_link
+    - right_contact_link_upper_left_link
+    - right_contact_link_lower_right_link
+    - right_contact_link_upper_right_link
 
 foot_zero_velocity_r:
   type: Cartesian
@@ -212,49 +212,49 @@ acceleration_regularization:
 
 f_left_regularization_0:
   type: Regularization
-  variable_name: f_leg_left_6_link_lower_left_link
+  variable_name: f_left_contact_link_lower_left_link
 #  nodes: all
   weight: *w_f
 
 f_left_regularization_1:
   type: Regularization
-  variable_name: f_leg_left_6_link_lower_right_link
+  variable_name: f_left_contact_link_lower_right_link
 #  nodes: all
   weight: *w_f
 
 f_left_regularization_2:
   type: Regularization
-  variable_name: f_leg_left_6_link_upper_left_link
+  variable_name: f_left_contact_link_upper_left_link
 #  nodes: all
   weight: *w_f
 
 f_left_regularization_3:
   type: Regularization
-  variable_name: f_leg_left_6_link_upper_right_link
+  variable_name: f_left_contact_link_upper_right_link
 #  nodes: all
   weight: *w_f
 
 f_right_regularization_0:
   type: Regularization
-  variable_name: f_leg_right_6_link_lower_left_link
+  variable_name: f_right_contact_link_lower_left_link
 #  nodes: all
   weight: *w_f
 
 f_right_regularization_1:
   type: Regularization
-  variable_name: f_leg_right_6_link_lower_right_link
+  variable_name: f_right_contact_link_lower_right_link
 #  nodes: all
   weight: *w_f
 
 f_right_regularization_2:
   type: Regularization
-  variable_name: f_leg_right_6_link_upper_left_link
+  variable_name: f_right_contact_link_upper_left_link
 #  nodes: all
   weight: *w_f
 
 f_right_regularization_3:
   type: Regularization
-  variable_name: f_leg_right_6_link_upper_right_link
+  variable_name: f_right_contact_link_upper_right_link
 #  nodes: all
   weight: *w_f
 

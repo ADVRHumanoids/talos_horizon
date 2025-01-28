@@ -225,16 +225,16 @@ Augment urdf with feet reference frames
 
 urdf_aug = URDFAugment(urdf_path)
 
-sole_xy = [0.14, 0.05]
-urdf_aug.addReferenceFrame('leg_left_6_link', 'left_ankle_roll_link', origin_xyz=[0, 0, -0.03])
-urdf_aug.addReferenceFrame('leg_right_6_link', 'right_ankle_roll_link', origin_xyz=[0, 0, -0.03])
-urdf_aug.addRectangleReferenceFrame('leg_left_6_link', size=sole_xy, offset_x=0.03)
-urdf_aug.addRectangleReferenceFrame('leg_right_6_link', size=sole_xy, offset_x=0.03)
+sole_xy = [0.2, 0.1]
+urdf_aug.addReferenceFrame('left_contact_link', 'leg_left_6_link', origin_xyz=[0, 0, -0.107])
+urdf_aug.addReferenceFrame('right_contact_link', 'leg_right_6_link', origin_xyz=[0, 0, -0.107])
+urdf_aug.addRectangleReferenceFrame('left_contact_link', size=sole_xy)
+urdf_aug.addRectangleReferenceFrame('right_contact_link', size=sole_xy)
 urdf = urdf_aug.getXml()
 
+rospy.delete_param('/robot_description')
 rospy.set_param('/robot_description', urdf)
 
-#
 base_pose = None
 base_twist = None
 b_T_imu = None
@@ -388,7 +388,7 @@ rel_dist = base_ori.T @ (pos_lf - pos_rf)
 
 # prb.createResidual('relative_distance_lower_x', utils.barrier(rel_dist[0] + 0.3))
 # prb.createResidual('relative_distance_upper_x', utils.barrier1(rel_dist[0] - 0.4))
-prb.createResidual('relative_distance_lower_y', 100. * utils.barrier(rel_dist[1] - 0.2))
+prb.createResidual('relative_distance_lower_y', 100. * utils.barrier(rel_dist[1] - 0.3))
 # prb.createResidual('relative_distance_upper_y', 10. * utils.barrier1(rel_dist[1] - 0.35))
 
 f0 = [0, 0, kin_dyn.mass() / 8 * 9.8]

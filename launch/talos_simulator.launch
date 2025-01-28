@@ -9,6 +9,4 @@
 
     <include file="$(find talos_cartesio_config)/mujoco/launch/talos_world.launch" pass_all_args="true"/>
 
-<!--     <node pkg="cogimon_controller" type="xbot2_core" name="xbot2" output="screen" -->
-<!--         args="--hw sim --simtime --config $(arg xbot2_config)"/> -->
 </launch>
