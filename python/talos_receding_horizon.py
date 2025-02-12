@@ -73,7 +73,6 @@ def imu_callback(msg:Imu):
     base_pose[3:] = w_T_b.quaternion
     base_pose[3:] = base_pose[3:] / np.linalg.norm(base_pose[3:])
     base_twist[3:] = b_T_imu.linear @ base_twist[3:]
-    print(base_pose)
 
 def joint_read_callback(msg: JointState):
     global joint_read
@@ -171,11 +170,11 @@ def set_state_from_robot(robot_joint_names, q_robot, qdot_robot, fixed_joint_map
 
     q = np.hstack([base_pose, q_robot])
     model.q[3:].setBounds(q[3:], q[3:], nodes=0)
-    model.q[3:].setInitialGuess(q[3:])
+    # model.q[3:].setInitialGuess(q[3:])
     # model.q[7:].setBounds(q_robot, q_robot, nodes=0)
     # model.q[7:].setInitialGuess(q_robot)
     # model.q[3:7].setBounds(base_pose[3:], base_pose[3:], nodes=0)
-    model.q[7:].setInitialGuess(q_robot)
+    # model.q[7:].setInitialGuess(q_robot)
 
 
     qdot = robot.getJointVelocity()
@@ -201,12 +200,14 @@ def set_state_from_robot(robot_joint_names, q_robot, qdot_robot, fixed_joint_map
     # rotate in the base frame the relative velocity (ee_v_distal - ee_v_base_distal)
     ee_rel = r_adj @ base_twist
 
-    qdot = np.hstack([ee_rel[3:], qdot_robot])
+    qdot = np.hstack([ee_rel, qdot_robot])
     # model.v[3:].setBounds(qdot, qdot, nodes=0)
     # model.v[6:].setBounds(qdot_robot, qdot_robot, nodes=0)
     # model.v[3:6].setBounds(base_twist[3:], base_twist[3:], nodes=0)
     # model.v[3:6].setInitialGuess(base_twist[3:])
     # model.v[6:].setInitialGuess(qdot_robot)
+    model.v.setBounds(np.hstack([[-np.inf, -np.inf, -np.inf], qdot[3:]]),
+                      np.hstack([[np.inf, np.inf, np.inf], qdot[3:]]), nodes=0)
 
 
 rospy.init_node('talos_walk')
@@ -280,7 +281,9 @@ if xbot_param:
     b_T_imu = model_xbot.getPose('imu_link', 'base_link')
 
     if closed_loop:
-        rospy.Subscriber("/xbotcore/imu/imu_link", Imu, imu_callback)
+        rospy.Subscriber("/xbotcore/link_state/base_link/pose", PoseStamped, gt_pose_callback)
+        rospy.Subscriber("/xbotcore/link_state/base_link/twist", TwistStamped, gt_twist_callback)
+        # rospy.Subscriber("/xbotcore/imu/imu_link", Imu, imu_callback)
         while base_pose is None or base_twist is None:
             print('Waiting for imu data')
             rospy.sleep(0.01)
@@ -597,7 +600,7 @@ while not rospy.is_shutdown():
         sol_msg.name = [elem for elem in kin_dyn.joint_names() if elem not in ['universe', 'reference']]
         sol_msg.position = solution['q'][7:, 1].tolist()
         sol_msg.velocity = solution['v'][6:, 1].tolist()
-        sol_msg.effort = tau.elements()[6:]
+        sol_msg.tau = tau.elements()[6:]
         solution_publisher.publish(sol_msg)
     else:
         sol_msg = WBTrajectory()
@@ -606,9 +609,9 @@ while not rospy.is_shutdown():
 
         sol_msg.joint_names = [elem for elem in kin_dyn.joint_names() if elem not in ['universe', 'reference']]
 
-        sol_msg.q = solution['q'][:, 2].tolist()
-        sol_msg.v = solution['v'][:, 2].tolist()
-        sol_msg.a = solution['a'][:, 2].tolist()
+        sol_msg.q = solution['q'][:, 1].tolist()
+        sol_msg.v = solution['v'][:, 1].tolist()
+        sol_msg.a = solution['a'][:, 1].tolist()
 
         for frame in model.getForceMap():
             sol_msg.force_names.append(frame)

@@ -53,7 +53,7 @@ costs:
     - &w_base_ori 10.
     - &w_base_ori_y 100.
     - &w_base_xy 50.
-    - &w_contact_z 1e3
+    - &w_contact_z 100
     - &w_contact 1e5
     - &w_postural 5.
     - &w_postural_hips 10.
@@ -124,7 +124,7 @@ foot_interaction_l:
   fn_min: 10.0
   friction_coeff: 0.5
   enable_fc: false
-  weight: *w_contact
+#  weight: *w_contact
   vertex_frames:
     - left_contact_link_lower_left_link
     - left_contact_link_upper_left_link
@@ -136,7 +136,7 @@ foot_zero_velocity_l:
   distal_link: left_sole_link
   indices: [0, 1, 2, 5]
   cartesian_type: velocity
-  weight: *w_contact
+#  weight: *w_contact
 
 foot_interaction_r:
   type: VertexForce
@@ -144,7 +144,7 @@ foot_interaction_r:
   fn_min: 10.0
   friction_coeff: 0.5
   enable_fc: false
-  weight: *w_contact
+#  weight: *w_contact
   vertex_frames:
     - right_contact_link_lower_left_link
     - right_contact_link_upper_left_link
@@ -156,7 +156,7 @@ foot_zero_velocity_r:
   distal_link: right_sole_link
   indices: [0, 1, 2, 5]
   cartesian_type: velocity
-  weight: *w_contact
+#  weight: *w_contact
 
 foot_contact_l:
   type: Contact
