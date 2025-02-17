@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.1.0)
-project(cogimon_controller)
+project(talos_horizon)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -12,11 +12,9 @@ find_package(catkin REQUIRED COMPONENTS
              message_generation)
 
 find_package(Eigen3 REQUIRED)
-
 find_package(urdfdom REQUIRED)
 find_package(pinocchio REQUIRED)
 find_package(XBotInterface REQUIRED)
-find_package(unitree_sdk2 REQUIRED)
 
 
 include_directories(
@@ -44,50 +42,28 @@ catkin_package(
     DEPENDS
     )
 
-add_executable(controller
+add_executable(talos_controller
     src/controller_node.cpp
     src/controller.cpp
     src/JointStatePublisher.cpp)
 
-target_link_libraries(controller
+target_link_libraries(talos_controller
     mpc_handler
     unitree_sdk2
     ${catkin_LIBRARIES})
 
-add_executable(joint_state_publisher
-    src/joint_state_publisher_node.cpp
-    src/JointStatePublisher.cpp)
-
-target_link_libraries(joint_state_publisher
-    unitree_sdk2
-    ${XBotInterface_LIBRARIES}
-    ${catkin_LIBRARIES})
-
-install(TARGETS joint_state_publisher
+install(TARGETS talos_controller
 ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
-add_library(RobotInterfaceUnitree
-    src/RobotInterfaceUnitree.cpp)
-
-target_link_libraries(RobotInterfaceUnitree
-    ${XBotInterface_LIBRARIES}
-    unitree_sdk2)
-
-install(TARGETS controller
-ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-)
-
-add_library(mpc_handler
+add_library(talos_mpc_handler
     src/mpc_handler.cpp
     src/mpc_joint_handler.cpp
     src/resampler.cpp
 )
-target_link_libraries(mpc_handler
+target_link_libraries(talos_mpc_handler
     yaml-cpp
     ${catkin_LIBRARIES}
     ${XBotInterface_LIBRARIES}
@@ -95,13 +71,7 @@ target_link_libraries(mpc_handler
     ${urdfdom_LIBRARIES}
 )
 
-install(TARGETS mpc_handler
-ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-)
-
-install(TARGETS RobotInterfaceUnitree
+install(TARGETS talos_mpc_handler
 ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
@@ -117,11 +87,6 @@ install(DIRECTORY launch/
 install(DIRECTORY config/
     DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/config
     FILES_MATCHING PATTERN "*.yaml"
-    )
-
-install(DIRECTORY rviz/
-    DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/rviz
-    FILES_MATCHING PATTERN "*.rviz"
     )
 
 install(DIRECTORY scripts/ USE_SOURCE_PERMISSIONS
