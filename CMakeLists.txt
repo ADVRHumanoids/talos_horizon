@@ -48,7 +48,7 @@ add_executable(talos_controller
 )
 
 target_link_libraries(talos_controller
-    mpc_handler
+    talos_mpc_handler
     ${catkin_LIBRARIES})
 
 install(TARGETS talos_controller
