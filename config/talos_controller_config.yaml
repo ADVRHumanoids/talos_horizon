@@ -15,16 +15,16 @@ fixed_joints:
 
 define:
     # open loop
-#    - &low_stiff 500.
-#    - &low_damp 60.
-#    - &high_stiff 2000.
-#    - &high_damp 100.
+    - &low_stiff 500.
+    - &low_damp 60.
+    - &high_stiff 2000.
+    - &high_damp 100.
 
     # closed loop
-    - &low_stiff 50.
-    - &low_damp 10.
-    - &high_stiff 200.
-    - &high_damp 10.
+#    - &low_stiff 50.
+#    - &low_damp 10.
+#    - &high_stiff 200.
+#    - &high_damp 10.
 
 stiffness:
     "leg_left_1_joint": *high_stiff
