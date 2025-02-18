@@ -45,7 +45,7 @@ catkin_package(
 add_executable(talos_controller
     src/controller_node.cpp
     src/controller.cpp
-    src/JointStatePublisher.cpp)
+)
 
 target_link_libraries(talos_controller
     mpc_handler
