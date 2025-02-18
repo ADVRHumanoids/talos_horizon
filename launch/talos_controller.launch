@@ -13,15 +13,15 @@
         <param name="autorepeat_rate" value="20"/>
     </node>
 
-     <node pkg="cogimon_controller" type="talos_receding_horizon.py" name="mpc_node" output="screen">
+     <node pkg="talos_horizon" type="talos_receding_horizon.py" name="mpc_node" output="screen">
         <param name="xbot" value="$(arg xbot)"/>
         <param name="closed_loop" value="$(arg closed_loop)"/>
         <param name="joy" value="$(arg joy)"/>
         <param name="talos" value="$(arg talos)"/>
      </node>
 
-     <node pkg="cogimon_controller" type="controller" name="talos_controller_node" output="screen" launch-prefix="bash -c 'sleep 3; $0 $@' " >
-        <param name="config" textfile="$(find cogimon_controller)/config/talos_controller_config.yaml"/>
+     <node pkg="talos_horizon" type="controller" name="talos_controller_node" output="screen" launch-prefix="bash -c 'sleep 3; $0 $@' " >
+        <param name="config" textfile="$(find talos_horizon)/config/talos_controller_config.yaml"/>
         <param name="rate" value="1000"/>
      </node>
 

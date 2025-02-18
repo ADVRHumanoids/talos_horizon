@@ -23,7 +23,7 @@ from horizon.rhc.ros.gait_manager_ros import GaitManagerROS
 
 from urdf_augment import URDFAugment
 from sensor_msgs.msg import Joy, JointState
-from cogimon_controller.msg import WBTrajectory
+from talos_horizon.msg import WBTrajectory
 from geometry_msgs.msg import PoseStamped, TwistStamped, Vector3, PointStamped
 from sensor_msgs.msg import Imu
 from std_msgs.msg import Float32MultiArray
@@ -391,7 +391,7 @@ process = subprocess.Popen(bashCommand.split(), start_new_session=True)
 
 ti = TaskInterface(prb=prb, model=model)
 
-ti.setTaskFromYaml(rospkg.RosPack().get_path('cogimon_controller') + '/config/talos_config.yaml')
+ti.setTaskFromYaml(rospkg.RosPack().get_path('talos_horizon') + '/config/talos_config.yaml')
 
 qmin = np.array(model.kd.q_min())
 qmax = np.array(model.kd.q_max())
