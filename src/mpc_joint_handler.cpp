@@ -54,7 +54,7 @@ _flag_id(true)
     _resampler_pub = _nh.advertise<sensor_msgs::JointState>("/resampler_solution_position", 1, true);
 }
 
-void MPCJointHandler::mpc_joint_callback(const cogimon_controller::WBTrajectoryConstPtr msg)
+void MPCJointHandler::mpc_joint_callback(const talos_horizon::WBTrajectoryConstPtr msg)
 {
     _mpc_solution = *msg;
 

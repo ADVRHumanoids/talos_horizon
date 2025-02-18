@@ -49,7 +49,6 @@ add_executable(talos_controller
 
 target_link_libraries(talos_controller
     mpc_handler
-    unitree_sdk2
     ${catkin_LIBRARIES})
 
 install(TARGETS talos_controller
