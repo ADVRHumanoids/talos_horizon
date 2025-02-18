@@ -20,7 +20,7 @@
         <param name="talos" value="$(arg talos)"/>
      </node>
 
-     <node pkg="talos_horizon" type="controller" name="talos_controller_node" output="screen" launch-prefix="bash -c 'sleep 3; $0 $@' " >
+     <node pkg="talos_horizon" type="talos_controller" name="talos_controller_node" output="screen" launch-prefix="bash -c 'sleep 3; $0 $@' " >
         <param name="config" textfile="$(find talos_horizon)/config/talos_controller_config.yaml"/>
         <param name="rate" value="1000"/>
      </node>
