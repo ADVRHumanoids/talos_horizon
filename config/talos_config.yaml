@@ -53,7 +53,7 @@ costs:
     - &w_base_ori 10.
     - &w_base_ori_y 100.
     - &w_base_xy 50.
-    - &w_contact_z 100
+    - &w_contact_z 1000
     - &w_contact 1e5
     - &w_postural 5.
     - &w_postural_hips 10.

@@ -436,7 +436,7 @@ f_reg_dict = {'left_sole_link': ['f_left_regularization_0', 'f_left_regularizati
 pm = pymanager.PhaseManager(ns + 1)
 rs = pyrosserver.RosServerClass(pm)
 
-pgm = PhaseGaitWrapper(ti, pm, model.getContactMap())
+pgm = PhaseGaitWrapper(ti, pm, model.getContactMap(), swing_task_list=list(z_task_dict.values()))
 
 z_traj = np.zeros([7, 1])
 z_traj[2] = 0.
@@ -554,7 +554,7 @@ while not rospy.is_shutdown():
 
         solution_publisher.publish(sol_msg)
 
-    if robot is not None:
+    if robot is None:
         repl.frame_force_mapping = {cname: solution[f.getName()] for cname, f in ti.model.fmap.items()}
         repl.publish_joints(solution['q'][:, 0])
         repl.publishContactForces(rospy.Time.now(), solution['q'][:, 0], 0)
