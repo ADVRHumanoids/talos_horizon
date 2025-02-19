@@ -534,7 +534,7 @@ while not rospy.is_shutdown():
         sol_msg.velocity = solution['v'][6:, 1].tolist()
         sol_msg.effort = tau.elements()[6:]
         solution_publisher.publish(sol_msg)
-    else:
+    elif xbot_param:
         sol_msg = WBTrajectory()
         sol_msg.header.frame_id = 'world'
         sol_msg.header.stamp = rospy.Time.now()
